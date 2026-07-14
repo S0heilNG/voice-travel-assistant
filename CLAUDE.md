@@ -35,8 +35,32 @@ voice-travel-assistant/
 ├── frontend/                  # React (RTL + Vazirmatn + Web Speech API)
 │   ├── src/
 │   └── package.json
+├── deploy.sh                  # اسکریپت دیپلوی خودکار (نگاه کنید به بخش «دیپلوی»)
 └── CLAUDE.md
 ```
+
+## دیپلوی
+
+سرور تولید: `vta-server` (VPS به IP `194.62.43.142`، Ubuntu 26.04)، با کاربر اپلیکیشن غیر-root به نام `vtaapp`.
+
+**از این به بعد دیپلوی همیشه از طریق اسکریپت خودکار انجام می‌شود، نه به‌صورت دستی:**
+
+```
+ssh vta-server "su - vtaapp -c '/var/www/vta/deploy.sh main'"
+```
+
+(آرگومان اول نام برنچ است؛ در نبود آرگومان پیش‌فرض `main` است.)
+
+`deploy.sh` (که نسخه‌ی مرجعش همین‌جا در ریشه‌ی ریپو نگه‌داری می‌شود و با `cat` مستقیم روی سرور در مسیر `/var/www/vta/deploy.sh` هم قرار دارد) این مراحل را خودکار انجام می‌دهد:
+
+1. یک release جدید با نام `v-<تاریخ>-<ساعت>` در `/var/www/vta/releases/` می‌سازد و ریپو را (با retry در برابر قطعی‌های شبکه‌ای گیت‌هاب) در آن clone می‌کند.
+2. بک‌اند Go را build می‌کند و `.env` واقعی را از `/var/www/vta/shared/.env` (که بین release‌ها مشترک و خارج از گیت است) در release کپی می‌کند.
+3. اگر `automation-service` دیپندنسی واقعی داشته باشد، `npm install --production` می‌زند.
+4. symlink مسیر `/var/www/vta/current` را به‌صورت atomic به release جدید تغییر می‌دهد و سرویس systemd (`vta-backend`) را ری‌استارت می‌کند.
+5. health check می‌زند (`GET /health`)؛ در صورت شکست، به‌طور خودکار symlink و سرویس را به release قبلی برمی‌گرداند (rollback) و با کد خروج غیرصفر خارج می‌شود.
+6. در صورت موفقیت، فقط ۳ release آخر را نگه می‌دارد و بقیه را پاک می‌کند.
+
+جزئیات زیرساخت سرور (Go، Node، Nginx reverse-proxy روی پورت ۸۰، Docker، UFW، systemd unit در `/etc/systemd/system/vta-backend.service`) در این فایل مستند نیست و باید در کانفیگ خود سرور بررسی شود.
 
 ## وضعیت فعلی
 
