@@ -4,9 +4,13 @@
   "private": true,
   "description": "Node.js + Playwright microservice for automating flight/hotel searches on platform 780",
   "type": "module",
-  "main": "src/index.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/server.js"
   },
-  "dependencies": {}
+  "dependencies": {
+    "express": "^5.2.1",
+    "p-queue": "^9.3.1",
+    "playwright": "^1.61.1"
+  }
 }
