@@ -1,0 +1,12 @@
+{
+  "name": "automation-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node.js + Playwright microservice for automating flight/hotel searches on platform 780",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {}
+}
