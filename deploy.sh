@@ -6,9 +6,11 @@ BASE_DIR="/var/www/vta"
 RELEASES_DIR="$BASE_DIR/releases"
 SHARED_ENV="$BASE_DIR/shared/.env"
 CURRENT_LINK="$BASE_DIR/current"
-SERVICE_NAME="vta-backend"
+BACKEND_SERVICE="vta-backend"
+AUTOMATION_SERVICE="vta-automation"
 KEEP_RELEASES=3
-HEALTH_URL="http://localhost:8080/health"
+BACKEND_HEALTH_URL="http://localhost:8080/health"
+AUTOMATION_HEALTH_URL="http://localhost:4000/health"
 GO_BIN="/usr/local/go/bin/go"
 
 BRANCH="${1:-main}"
@@ -73,20 +75,37 @@ fi
 echo "==> Switching 'current' symlink to $RELEASE_NAME"
 ln -sfn "$RELEASE_PATH" "$CURRENT_LINK"
 
-echo "==> Restarting $SERVICE_NAME"
-sudo -n systemctl restart "$SERVICE_NAME"
+echo "==> Restarting $BACKEND_SERVICE and $AUTOMATION_SERVICE"
+sudo -n systemctl restart "$BACKEND_SERVICE"
+sudo -n systemctl restart "$AUTOMATION_SERVICE"
 
-echo "==> Waiting for service to come up"
+echo "==> Waiting for services to come up"
 sleep 2
 
-echo "==> Health check: $HEALTH_URL"
-if curl -sf "$HEALTH_URL" > /dev/null; then
-    echo "==> Health check passed"
+HEALTH_OK=true
+
+echo "==> Health check: $BACKEND_HEALTH_URL"
+if curl -sf "$BACKEND_HEALTH_URL" > /dev/null; then
+    echo "==> $BACKEND_SERVICE health check passed"
 else
+    echo "==> $BACKEND_SERVICE health check FAILED"
+    HEALTH_OK=false
+fi
+
+echo "==> Health check: $AUTOMATION_HEALTH_URL"
+if curl -sf "$AUTOMATION_HEALTH_URL" > /dev/null; then
+    echo "==> $AUTOMATION_SERVICE health check passed"
+else
+    echo "==> $AUTOMATION_SERVICE health check FAILED"
+    HEALTH_OK=false
+fi
+
+if [ "$HEALTH_OK" != true ]; then
     echo "==> Health check FAILED — rolling back"
     if [ -n "$PREVIOUS_RELEASE" ] && [ -d "$PREVIOUS_RELEASE" ]; then
         ln -sfn "$PREVIOUS_RELEASE" "$CURRENT_LINK"
-        sudo -n systemctl restart "$SERVICE_NAME"
+        sudo -n systemctl restart "$BACKEND_SERVICE"
+        sudo -n systemctl restart "$AUTOMATION_SERVICE"
         echo "ERROR: deploy of $RELEASE_NAME failed health check; rolled back to $(basename "$PREVIOUS_RELEASE")" >&2
     else
         echo "ERROR: deploy of $RELEASE_NAME failed health check; no previous release available to roll back to" >&2
