@@ -1,6 +1,7 @@
 package nlu
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -21,6 +22,12 @@ type JalaliDate struct {
 // query parameter 780.ir expects.
 func (d JalaliDate) String() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.Year, d.Month, d.Day)
+}
+
+// MarshalJSON encodes the date as its "YYYY-MM-DD" string form rather than
+// a {"Year":...,"Month":...,"Day":...} object.
+func (d JalaliDate) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
 }
 
 func toJalaliDate(t time.Time) (JalaliDate, error) {

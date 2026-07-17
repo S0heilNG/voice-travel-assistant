@@ -12,9 +12,11 @@ import (
 // and fix anything that's wrong.
 
 // City is a resolved Iranian city with its domestic-flight IATA code.
+// JSON tags are on the domain type itself (rather than a separate handler
+// DTO) since this project is small enough that one shape serves both.
 type City struct {
-	Name string
-	IATA string
+	Name string `json:"name"`
+	IATA string `json:"iata"`
 }
 
 type cityEntry struct {
