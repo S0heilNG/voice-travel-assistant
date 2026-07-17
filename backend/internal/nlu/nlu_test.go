@@ -259,3 +259,149 @@ func TestNormalize(t *testing.T) {
 		})
 	}
 }
+
+// TestParseRealisticSentences uses messier, punctuation-free, colloquial
+// sentences closer to real Web Speech API output. Expectations here encode
+// what the CORRECT answer should be (what the user actually meant), not
+// necessarily what the current rule-based implementation returns. Failures
+// are expected to surface real gaps in the ruleset — see the conversation/
+// commit history for the analysis of each failure before changing any code.
+func TestParseRealisticSentences(t *testing.T) {
+	tests := []struct {
+		name        string
+		text        string
+		wantIntent  Intent
+		wantOrigin  *City
+		wantDest    *City
+		wantDate    *JalaliDate
+		wantMissing []string
+	}{
+		{
+			name:        "colloquial, verb instead of به for the destination leg",
+			text:        "سلام میخوام یه بلیط بگیرم از تهران برم مشهد فردا صبح",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  city("تهران", "THR"),
+			wantDest:    city("مشهد", "MHD"),
+			wantDate:    jd(1405, 4, 27),
+			wantMissing: nil,
+		},
+		{
+			name:        "bare route shorthand, no به at all",
+			text:        "برای پنجشنبه بلیط تهران مشهد داری",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  city("تهران", "THR"),
+			wantDest:    city("مشهد", "MHD"),
+			wantDate:    jd(1405, 5, 1),
+			wantMissing: nil,
+		},
+		{
+			name:        "destination only, has به, extra filler word ارزون",
+			text:        "یه پرواز ارزون به کیش برای هفته آینده",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  nil,
+			wantDest:    city("کیش", "KIH"),
+			wantDate:    jd(1405, 5, 2),
+			wantMissing: []string{"origin"},
+		},
+		{
+			name:        "no keyword, no origin ever mentioned, weekday with space",
+			text:        "میخوام سه شنبه برم شیراز",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  nil,
+			wantDest:    city("شیراز", "SYZ"),
+			wantDate:    jd(1405, 4, 30),
+			wantMissing: []string{"origin"},
+		},
+		{
+			name:        "explicit از...به pattern with Persian-digit date",
+			text:        "بلیط هواپیما از مشهد به تهران برای ۱۲ مرداد",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  city("مشهد", "MHD"),
+			wantDest:    city("تهران", "THR"),
+			wantDate:    jd(1405, 5, 12),
+			wantMissing: nil,
+		},
+		{
+			name:        "hotel, تو instead of در, filler word ارزون",
+			text:        "دنبال هتل ارزون تو مشهد میگردم برای فردا",
+			wantIntent:  IntentHotelSearch,
+			wantOrigin:  nil,
+			wantDest:    city("مشهد", "MHD"),
+			wantDate:    jd(1405, 4, 27),
+			wantMissing: nil,
+		},
+		{
+			name:        "bare route, no به, no date",
+			text:        "پرواز تهران مشهد",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  city("تهران", "THR"),
+			wantDest:    city("مشهد", "MHD"),
+			wantDate:    nil,
+			wantMissing: []string{"date"},
+		},
+		{
+			name:        "no flight/hotel keyword at all, has به",
+			text:        "از اصفهان به تهران",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  city("اصفهان", "IFN"),
+			wantDest:    city("تهران", "THR"),
+			wantDate:    nil,
+			wantMissing: []string{"date"},
+		},
+		{
+			// KNOWN, ACCEPTED RISK (see CLAUDE.md): this sentence has nothing
+			// to do with travel, but mentions a known city, so the
+			// city-fallback rule fires. This test documents current
+			// intended behavior for the MVP — it is NOT asserting that this
+			// is semantically "correct", just that it's the accepted
+			// trade-off and shouldn't silently change.
+			name:        "false positive from city-fallback rule — known accepted risk",
+			text:        "تهران هوا چطوره",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  nil,
+			wantDest:    city("تهران", "THR"),
+			wantDate:    nil,
+			wantMissing: []string{"origin", "date"},
+		},
+		{
+			name:        "reversed order — destination mentioned before از-origin",
+			text:        "می‌خوام برم مشهد از تهران",
+			wantIntent:  IntentFlightSearch,
+			wantOrigin:  city("تهران", "THR"),
+			wantDest:    city("مشهد", "MHD"),
+			wantDate:    nil,
+			wantMissing: []string{"date"},
+		},
+		{
+			name:        "hotel with two city mentions — only the first is the destination, no origin",
+			text:        "هتل مشهد تهران",
+			wantIntent:  IntentHotelSearch,
+			wantOrigin:  nil,
+			wantDest:    city("مشهد", "MHD"),
+			wantDate:    nil,
+			wantMissing: []string{"date"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parse(tt.text, fixedNow)
+
+			if got.Intent != tt.wantIntent {
+				t.Errorf("Intent = %v, want %v", got.Intent, tt.wantIntent)
+			}
+			if !reflect.DeepEqual(got.Origin, tt.wantOrigin) {
+				t.Errorf("Origin = %+v, want %+v", got.Origin, tt.wantOrigin)
+			}
+			if !reflect.DeepEqual(got.Destination, tt.wantDest) {
+				t.Errorf("Destination = %+v, want %+v", got.Destination, tt.wantDest)
+			}
+			if !reflect.DeepEqual(got.Date, tt.wantDate) {
+				t.Errorf("Date = %+v, want %+v", got.Date, tt.wantDate)
+			}
+			if !reflect.DeepEqual(got.Missing, tt.wantMissing) {
+				t.Errorf("Missing = %v, want %v", got.Missing, tt.wantMissing)
+			}
+		})
+	}
+}
