@@ -1,62 +1,158 @@
-import { useState } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import { parseText } from './api.js'
+import { useSpeechRecognition } from './useSpeechRecognition.js'
+import './App.css'
 
-// Temporary test harness for the /api/parse connection.
-// To be replaced by the real conversational voice UI in later steps.
+// Phases: idle → listening → processing → result | error.
+// From result/error the mic (or retry) sends the user back to idle/listening.
+const initialState = { phase: 'idle', result: null, error: null }
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'LISTENING':
+      return { phase: 'listening', result: null, error: null }
+    case 'PROCESSING':
+      return { phase: 'processing', result: null, error: null }
+    case 'RESULT':
+      return { phase: 'result', result: action.result, error: null }
+    case 'ERROR':
+      return { phase: 'error', result: null, error: action.error }
+    case 'RESET':
+      return initialState
+    default:
+      return state
+  }
+}
+
 function App() {
-  const [text, setText] = useState('')
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [state, dispatch] = useReducer(reducer, initialState)
+  const {
+    isSupported,
+    isListening,
+    transcript,
+    interimTranscript,
+    error: speechError,
+    startListening,
+    resetTranscript,
+  } = useSpeechRecognition({ lang: 'fa-IR' })
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setResult(null)
+  const [useTextMode, setUseTextMode] = useState(!isSupported)
+  const [textValue, setTextValue] = useState('')
+
+  async function submit(text) {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    dispatch({ type: 'PROCESSING' })
     try {
-      const data = await parseText(text)
-      setResult(data)
+      const data = await parseText(trimmed)
+      dispatch({ type: 'RESULT', result: data })
     } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
+      dispatch({ type: 'ERROR', error: err.message })
     }
   }
 
-  return (
-    <div style={{ maxWidth: 600, margin: '40px auto', padding: '0 16px' }}>
-      <h1>دستیار سفر صوتی — تست اتصال API</h1>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8 }}>
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="مثلاً: بلیط تهران به مشهد برای فردا"
-          style={{ flex: 1, padding: 8, fontSize: 16, fontFamily: 'inherit' }}
-        />
-        <button type="submit" disabled={loading || !text.trim()} style={{ padding: '8px 20px', fontFamily: 'inherit' }}>
-          جستجو
-        </button>
-      </form>
+  // A final voice transcript arrived → send it to the NLU, then clear it so
+  // this effect doesn't re-fire on the emptied value.
+  useEffect(() => {
+    if (transcript) {
+      submit(transcript)
+      resetTranscript()
+    }
+  }, [transcript]) // eslint-disable-line react-hooks/exhaustive-deps
 
-      {loading && <p>در حال پردازش...</p>}
-      {error && <p style={{ color: 'crimson' }}>خطا: {error}</p>}
-      {result && (
-        <pre
-          style={{
-            marginTop: 20,
-            padding: 16,
-            background: '#1e1e1e',
-            color: '#d4d4d4',
-            borderRadius: 8,
-            direction: 'ltr',
-            textAlign: 'left',
-            overflowX: 'auto',
-          }}
-        >
-          {JSON.stringify(result, null, 2)}
-        </pre>
+  // Speech recognition raised an error (mic denied, network, ...).
+  useEffect(() => {
+    if (speechError) {
+      dispatch({ type: 'ERROR', error: speechError })
+    }
+  }, [speechError])
+
+  // Recognition ended while still in the listening phase with no transcript:
+  // the user said nothing. Go back to idle instead of hanging on listening.
+  useEffect(() => {
+    if (!isListening && state.phase === 'listening' && !transcript) {
+      dispatch({ type: 'RESET' })
+    }
+  }, [isListening, state.phase, transcript])
+
+  function handleMicClick() {
+    dispatch({ type: 'LISTENING' })
+    startListening()
+  }
+
+  function handleTextSubmit(e) {
+    e.preventDefault()
+    submit(textValue)
+  }
+
+  const showTextInput = !isSupported || useTextMode
+
+  return (
+    <div className="app">
+      <h1>دستیار سفر صوتی</h1>
+
+      {showTextInput ? (
+        <>
+          <form className="text-form" onSubmit={handleTextSubmit}>
+            <input
+              type="text"
+              value={textValue}
+              onChange={(e) => setTextValue(e.target.value)}
+              placeholder="مثلاً: بلیط تهران به مشهد برای فردا"
+            />
+            <button type="submit" disabled={state.phase === 'processing' || !textValue.trim()}>
+              جستجو
+            </button>
+          </form>
+          {isSupported && (
+            <button className="link-button" onClick={() => setUseTextMode(false)}>
+              یا با صدا صحبت کنید
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <button
+            className={`mic-button${state.phase === 'listening' ? ' listening' : ''}`}
+            onClick={handleMicClick}
+            disabled={state.phase === 'listening' || state.phase === 'processing'}
+            aria-label="شروع ضبط صدا"
+          >
+            {state.phase === 'listening' ? '●' : '🎤'}
+          </button>
+
+          <div className="status-text">
+            {state.phase === 'idle' && 'برای شروع صحبت کنید'}
+            {state.phase === 'listening' && 'در حال گوش دادن...'}
+            {(state.phase === 'result' || state.phase === 'error') && 'برای جستجوی دوباره، میکروفون را بزنید'}
+          </div>
+
+          {state.phase === 'listening' && <div className="interim">{interimTranscript}</div>}
+
+          <button className="link-button" onClick={() => setUseTextMode(true)}>
+            یا تایپ کنید
+          </button>
+        </>
+      )}
+
+      {state.phase === 'processing' && (
+        <>
+          <div className="spinner" />
+          <div className="status-text">در حال پردازش...</div>
+        </>
+      )}
+
+      {state.phase === 'error' && (
+        <div className="error-box">
+          <p>خطا: {state.error}</p>
+          <button className="retry-button" onClick={() => dispatch({ type: 'RESET' })}>
+            تلاش دوباره
+          </button>
+        </div>
+      )}
+
+      {state.phase === 'result' && (
+        <pre className="result-json">{JSON.stringify(state.result, null, 2)}</pre>
       )}
     </div>
   )
