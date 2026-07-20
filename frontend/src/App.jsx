@@ -24,6 +24,14 @@ function reducer(state, action) {
   }
 }
 
+// Persian labels for the NLU's `missing` field keys, used both for the
+// debug hint here and as groundwork for the clarification loop (next step).
+const MISSING_LABELS = {
+  origin: 'مبدا',
+  destination: 'مقصد',
+  date: 'تاریخ',
+}
+
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const {
@@ -38,10 +46,14 @@ function App() {
 
   const [useTextMode, setUseTextMode] = useState(!isSupported)
   const [textValue, setTextValue] = useState('')
+  // The exact text sent to the NLU (from voice or typing), shown in the
+  // result so we can see what Web Speech actually heard.
+  const [lastTranscript, setLastTranscript] = useState('')
 
   async function submit(text) {
     const trimmed = text.trim()
     if (!trimmed) return
+    setLastTranscript(trimmed)
     dispatch({ type: 'PROCESSING' })
     try {
       const data = await parseText(trimmed)
@@ -152,7 +164,15 @@ function App() {
       )}
 
       {state.phase === 'result' && (
-        <pre className="result-json">{JSON.stringify(state.result, null, 2)}</pre>
+        <div className="result">
+          <p className="heard">متن تشخیص داده‌شده: «{lastTranscript}»</p>
+          {state.result.missing && state.result.missing.length > 0 && (
+            <p className="missing-hint">
+              موارد ناقص: {state.result.missing.map((f) => MISSING_LABELS[f] || f).join('، ')}
+            </p>
+          )}
+          <pre className="result-json">{JSON.stringify(state.result, null, 2)}</pre>
+        </div>
       )}
     </div>
   )

@@ -76,8 +76,25 @@
   color: #b91c1c;
 }
 
-.result-json {
+.result {
   margin-top: 20px;
+}
+
+.heard {
+  font-size: 17px;
+  color: #1a1a1a;
+  background: #eef2ff;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.missing-hint {
+  color: #b45309;
+  font-size: 15px;
+}
+
+.result-json {
+  margin-top: 12px;
   padding: 16px;
   background: #1e1e1e;
   color: #d4d4d4;
