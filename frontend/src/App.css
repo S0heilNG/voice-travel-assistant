@@ -152,6 +152,30 @@
   height: 32px;
 }
 
+/* Settling: speech has ended, so the pulse stops — the mic stays lit to show
+   we're still with the user rather than having cut them off. */
+.mic-button.settled {
+  animation: none;
+  border-color: var(--c-green);
+  color: var(--c-green);
+  background: var(--c-green-tint);
+}
+
+.heard-flag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--c-green);
+}
+
+.heard-flag .icon {
+  width: 18px;
+  height: 18px;
+}
+
 @keyframes pulse {
   0%,
   100% {

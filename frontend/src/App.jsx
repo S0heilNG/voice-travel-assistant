@@ -12,14 +12,27 @@ import {
 } from './icons.jsx'
 import './App.css'
 
-// Phases: idle → listening → processing → (clarifying ↔ listening)
+// Pacing. Speech recognition and the local NLU are both near-instant, which
+// reads as the app cutting the user off rather than listening to them. These
+// two floors trade a little latency for a calmer, more attentive feel.
+// GRACE_MS: how long the final heard text stays on screen before we submit,
+// so the user gets to see that we caught the whole sentence.
+const GRACE_MS = 1300
+// MIN_THINKING_MS: floor on how long the spinner shows. It runs alongside the
+// request, so a slow API costs nothing extra — it only stops a fast one from
+// flashing past.
+const MIN_THINKING_MS = 1000
+
+// Phases: idle → listening → settling → processing → (clarifying ↔ listening)
 //         → confirming → redirecting, plus error.
-const initialState = { phase: 'idle', question: '', error: null, notice: '' }
+const initialState = { phase: 'idle', question: '', error: null, notice: '', heardText: '' }
 
 function reducer(state, action) {
   switch (action.type) {
     case 'LISTENING':
-      return { ...state, phase: 'listening', error: null, notice: '' }
+      return { ...state, phase: 'listening', error: null, notice: '', heardText: '' }
+    case 'SETTLE':
+      return { ...state, phase: 'settling', heardText: action.text, error: null }
     case 'PROCESSING':
       return { ...state, phase: 'processing', error: null, notice: '' }
     case 'CLARIFY':
@@ -161,13 +174,14 @@ const SUGGESTIONS = [
 
 const TITLE_BY_PHASE = {
   listening: 'در حال گوش دادن',
+  settling: 'شنیدم',
   processing: 'در حال پردازش',
   clarifying: 'یک سوال کوچیک',
   confirming: 'این درسته؟',
   error: 'مشکلی پیش اومد',
 }
 
-const STEP_BY_PHASE = { listening: 0, processing: 0, clarifying: 1, confirming: 2 }
+const STEP_BY_PHASE = { listening: 0, settling: 0, processing: 0, clarifying: 1, confirming: 2 }
 
 function SlotChips({ slots }) {
   if (!slots) return null
@@ -221,7 +235,12 @@ function App() {
       : trimmed
 
     try {
-      const data = await parseText(textToParse)
+      // Run the request and the minimum-spinner delay together so the floor
+      // never stacks on top of a slow response.
+      const [data] = await Promise.all([
+        parseText(textToParse),
+        new Promise((resolve) => setTimeout(resolve, MIN_THINKING_MS)),
+      ])
 
       // First utterance we can't understand at all → don't enter the loop.
       if (!inConversation && data.intent === 'unknown') {
@@ -246,14 +265,24 @@ function App() {
     }
   }
 
-  // A final voice transcript arrived → send it, then clear so this effect
-  // doesn't re-fire on the emptied value.
+  // A final voice transcript arrived → hold it on screen (settling) instead of
+  // submitting straight away, then clear so this effect doesn't re-fire on the
+  // emptied value. `settling` is a phase of its own rather than a flag on
+  // `listening`, so the silence-recovery effect below can't cut it short.
   useEffect(() => {
     if (transcript) {
-      submit(transcript)
+      dispatch({ type: 'SETTLE', text: transcript })
       resetTranscript()
     }
   }, [transcript]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Grace period: after the pause, submit what we heard. Leaving the phase for
+  // any reason (new search, correction, error) cancels the pending submit.
+  useEffect(() => {
+    if (state.phase !== 'settling') return
+    const timer = setTimeout(() => submit(state.heardText), GRACE_MS)
+    return () => clearTimeout(timer)
+  }, [state.phase, state.heardText]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Speech recognition raised an error (mic denied, network, no-speech, ...).
   useEffect(() => {
@@ -418,6 +447,23 @@ function App() {
             <p className="transcript-live">{interimTranscript || '...'}</p>
           </div>
           <p className="hint">حرف بزن — وقتی تموم شد، خودکار متوقف می‌شه</p>
+        </div>
+      )}
+
+      {state.phase === 'settling' && (
+        <div className="mic-stage">
+          <div className="mic-wrap">
+            <button className="mic-button listening settled" disabled aria-label="شنیده شد">
+              <MicIcon className="icon" />
+            </button>
+          </div>
+          <p className="heard-flag">
+            <CheckIcon className="icon" />
+            شنیدم
+          </p>
+          <div className="card">
+            <p className="transcript-live">{state.heardText}</p>
+          </div>
         </div>
       )}
 
