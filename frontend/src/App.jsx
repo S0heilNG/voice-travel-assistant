@@ -1,28 +1,41 @@
 import { useEffect, useReducer, useState } from 'react'
 import { parseText } from './api.js'
 import { useSpeechRecognition } from './useSpeechRecognition.js'
+import {
+  CalendarIcon,
+  CheckIcon,
+  ExternalLinkIcon,
+  MicIcon,
+  PassengersIcon,
+  PinIcon,
+  SparkleIcon,
+} from './icons.jsx'
 import './App.css'
 
-// Phases: idle → listening → processing → (clarifying ↔ listening) → result | error.
-// clarifying is entered when accumulated slots are still missing required fields.
-const initialState = { phase: 'idle', question: '', error: null }
+// Phases: idle → listening → processing → (clarifying ↔ listening)
+//         → confirming → redirecting, plus error.
+const initialState = { phase: 'idle', question: '', error: null, notice: '' }
 
 function reducer(state, action) {
   switch (action.type) {
     case 'LISTENING':
-      return { ...state, phase: 'listening', error: null }
+      return { ...state, phase: 'listening', error: null, notice: '' }
     case 'PROCESSING':
-      return { ...state, phase: 'processing', error: null }
+      return { ...state, phase: 'processing', error: null, notice: '' }
     case 'CLARIFY':
       return { ...state, phase: 'clarifying', question: action.question, error: null }
     case 'RESUME_CLARIFY':
       return { ...state, phase: 'clarifying' }
-    case 'RESULT':
-      return { ...state, phase: 'result', error: null }
+    case 'CONFIRM':
+      return { ...state, phase: 'confirming', error: null }
+    case 'REDIRECT':
+      return { ...state, phase: 'redirecting', error: null }
     case 'ERROR':
       return { ...state, phase: 'error', error: action.error }
     case 'RESET':
       return initialState
+    case 'RESTART':
+      return { ...initialState, notice: action.notice }
     default:
       return state
   }
@@ -107,15 +120,64 @@ function buildQuestion(missing, slots) {
   return 'چه کمکی می‌تونم بکنم؟'
 }
 
-function SlotSummary({ slots }) {
+// --- Display helpers ---
+
+const JALALI_MONTHS = [
+  'فروردین',
+  'اردیبهشت',
+  'خرداد',
+  'تیر',
+  'مرداد',
+  'شهریور',
+  'مهر',
+  'آبان',
+  'آذر',
+  'دی',
+  'بهمن',
+  'اسفند',
+]
+
+function toPersianDigits(value) {
+  return String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
+}
+
+// "1405-04-30" → "۳۰ تیر ۱۴۰۵"
+function formatJalali(date) {
+  if (!date) return ''
+  const [y, m, d] = date.split('-').map(Number)
+  const month = JALALI_MONTHS[m - 1]
+  if (!month) return toPersianDigits(date)
+  return `${toPersianDigits(d)} ${month} ${toPersianDigits(y)}`
+}
+
+// Suggestion chips: the visible label follows the mockup, but the submitted
+// text is chosen so it always parses (a bare "سفر آخر هفته" comes back as
+// intent=unknown and would dead-end on the error screen).
+const SUGGESTIONS = [
+  { label: 'بلیط هواپیما', text: 'بلیط هواپیما می‌خوام' },
+  { label: 'رزرو هتل', text: 'رزرو هتل' },
+  { label: 'سفر آخر هفته', text: 'بلیط برای آخر هفته' },
+]
+
+const TITLE_BY_PHASE = {
+  listening: 'در حال گوش دادن',
+  processing: 'در حال پردازش',
+  clarifying: 'یک سوال کوچیک',
+  confirming: 'این درسته؟',
+  error: 'مشکلی پیش اومد',
+}
+
+const STEP_BY_PHASE = { listening: 0, processing: 0, clarifying: 1, confirming: 2 }
+
+function SlotChips({ slots }) {
   if (!slots) return null
   const chips = []
   if (slots.origin) chips.push(`مبدا: ${slots.origin.name} ✓`)
   if (slots.destination) chips.push(`مقصد: ${slots.destination.name} ✓`)
-  if (slots.date) chips.push(`تاریخ: ${slots.date} ✓`)
+  if (slots.date) chips.push(`تاریخ: ${formatJalali(slots.date)} ✓`)
   if (chips.length === 0) return null
   return (
-    <div className="slot-summary">
+    <div className="chips">
       {chips.map((c) => (
         <span key={c} className="chip">
           {c}
@@ -175,7 +237,7 @@ function App() {
 
       const missing = computeMissing(merged)
       if (missing.length === 0) {
-        dispatch({ type: 'RESULT' })
+        dispatch({ type: 'CONFIRM' })
       } else {
         dispatch({ type: 'CLARIFY', question: buildQuestion(missing, merged) })
       }
@@ -234,107 +296,237 @@ function App() {
     else handleNewSearch()
   }
 
+  // Opened synchronously inside the click so the popup blocker treats it as
+  // a user gesture; the redirect screen is then shown as confirmation.
+  function handleSearch() {
+    if (searchUrl) window.open(searchUrl, '_blank', 'noopener')
+    dispatch({ type: 'REDIRECT' })
+  }
+
+  // Partial slot editing needs machinery we don't have yet, so correcting
+  // simply starts the conversation over.
+  function handleCorrect() {
+    setAccumulatedSlots(null)
+    setLastTranscript('')
+    setTextValue('')
+    resetTranscript()
+    dispatch({ type: 'RESTART', notice: 'باشه، از نو بگید.' })
+  }
+
   const showTextInput = !isSupported || useTextMode
-  const awaitingInput = state.phase === 'idle' || state.phase === 'clarifying'
-  const searchUrl = state.phase === 'result' ? buildSearchUrl(accumulatedSlots) : null
-  const showQuestion =
-    state.question && ['clarifying', 'listening', 'processing'].includes(state.phase)
+  const searchUrl = buildSearchUrl(accumulatedSlots)
+  const isHotel = accumulatedSlots?.intent === 'hotel_search'
+  const title = TITLE_BY_PHASE[state.phase]
+  const step = STEP_BY_PHASE[state.phase]
+
+  function renderInputArea() {
+    if (showTextInput) {
+      return (
+        <>
+          <form className="text-form" onSubmit={handleTextSubmit}>
+            <input
+              type="text"
+              value={textValue}
+              onChange={(e) => setTextValue(e.target.value)}
+              placeholder={
+                state.phase === 'clarifying' ? 'پاسخ شما...' : 'مثلاً: بلیط تهران به مشهد برای فردا'
+              }
+            />
+            <button type="submit" disabled={!textValue.trim()}>
+              {state.phase === 'clarifying' ? 'ادامه' : 'جستجو'}
+            </button>
+          </form>
+          {isSupported && (
+            <button className="link-button" onClick={() => setUseTextMode(false)}>
+              یا با صدا صحبت کنید
+            </button>
+          )}
+        </>
+      )
+    }
+    return (
+      <>
+        <div className="mic-wrap">
+          <button className="mic-button" onClick={handleMicClick} aria-label="شروع ضبط صدا">
+            <MicIcon className="icon" />
+          </button>
+        </div>
+        <p className="hint">
+          {state.phase === 'clarifying'
+            ? 'برای پاسخ، دکمه رو بزن و صحبت کن'
+            : 'برای شروع، دکمه رو بزن و صحبت کن'}
+        </p>
+        <button className="link-button" onClick={() => setUseTextMode(true)}>
+          یا تایپ کنید
+        </button>
+      </>
+    )
+  }
 
   return (
     <div className="app">
-      <h1>دستیار سفر صوتی</h1>
-
-      {showQuestion && <p className="question">{state.question}</p>}
-
-      {accumulatedSlots && state.phase !== 'result' && state.phase !== 'idle' && (
-        <SlotSummary slots={accumulatedSlots} />
+      {state.phase === 'idle' ? (
+        <p className="brand">دستیار سفر هفت‌هشتاد</p>
+      ) : (
+        title && (
+          <div className="header">
+            <span className="header-title">{title}</span>
+            {step !== undefined && (
+              <span className="dots">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className={`dot${i === step ? ' active' : ''}`} />
+                ))}
+              </span>
+            )}
+          </div>
+        )
       )}
 
-      {/* Input: mic (voice) or text field */}
-      {showTextInput
-        ? awaitingInput && (
-            <>
-              <form className="text-form" onSubmit={handleTextSubmit}>
-                <input
-                  type="text"
-                  value={textValue}
-                  onChange={(e) => setTextValue(e.target.value)}
-                  placeholder={
-                    state.phase === 'clarifying'
-                      ? 'پاسخ شما...'
-                      : 'مثلاً: بلیط تهران به مشهد برای فردا'
-                  }
-                />
-                <button type="submit" disabled={!textValue.trim()}>
-                  {state.phase === 'clarifying' ? 'ادامه' : 'جستجو'}
-                </button>
-              </form>
-              {isSupported && (
-                <button className="link-button" onClick={() => setUseTextMode(false)}>
-                  یا با صدا صحبت کنید
-                </button>
-              )}
-            </>
-          )
-        : (awaitingInput || state.phase === 'listening') && (
-            <>
-              <button
-                className={`mic-button${state.phase === 'listening' ? ' listening' : ''}`}
-                onClick={handleMicClick}
-                disabled={state.phase === 'listening'}
-                aria-label="شروع ضبط صدا"
-              >
-                {state.phase === 'listening' ? '●' : '🎤'}
+      {state.phase === 'idle' && (
+        <>
+          <h1 className="greeting">سلام! امروز کجا می‌خوای بری؟</h1>
+          <div className="suggestions">
+            {SUGGESTIONS.map((s) => (
+              <button key={s.label} className="suggestion" onClick={() => submit(s.text)}>
+                {s.label}
               </button>
-              <div className="status-text">
-                {state.phase === 'idle' && 'برای شروع صحبت کنید'}
-                {state.phase === 'listening' && 'در حال گوش دادن...'}
-                {state.phase === 'clarifying' && 'برای پاسخ، میکروفون را بزنید'}
-              </div>
-              {state.phase === 'listening' && <div className="interim">{interimTranscript}</div>}
-              <button className="link-button" onClick={() => setUseTextMode(true)}>
-                یا تایپ کنید
-              </button>
-            </>
+            ))}
+          </div>
+          {state.notice && (
+            <div className="notice" style={{ marginTop: 'var(--sp-4)' }}>
+              <SparkleIcon className="icon" />
+              {state.notice}
+            </div>
           )}
+          <div className="mic-stage">{renderInputArea()}</div>
+        </>
+      )}
+
+      {state.phase === 'listening' && (
+        <div className="mic-stage">
+          <div className="mic-wrap">
+            <button className="mic-button listening" disabled aria-label="در حال گوش دادن">
+              <MicIcon className="icon" />
+            </button>
+          </div>
+          <div className="waveform">
+            {Array.from({ length: 22 }).map((_, i) => (
+              <span key={i} style={{ animationDelay: `${(i % 7) * 0.12}s` }} />
+            ))}
+          </div>
+          <div className="card">
+            <p className="transcript-live">{interimTranscript || '...'}</p>
+          </div>
+          <p className="hint">حرف بزن — وقتی تموم شد، خودکار متوقف می‌شه</p>
+        </div>
+      )}
 
       {state.phase === 'processing' && (
-        <>
+        <div className="mic-stage">
           <div className="spinner" />
-          <div className="status-text">در حال پردازش...</div>
+          <p className="status-text">در حال پردازش...</p>
+          <SlotChips slots={accumulatedSlots} />
+        </div>
+      )}
+
+      {state.phase === 'clarifying' && (
+        <>
+          <p className="question">{state.question}</p>
+          <SlotChips slots={accumulatedSlots} />
+          <div className="mic-stage">{renderInputArea()}</div>
         </>
+      )}
+
+      {state.phase === 'confirming' && accumulatedSlots && (
+        <>
+          <div className="summary-card">
+            <div className="summary-head">
+              <SparkleIcon className="icon" />
+              <span>{isHotel ? 'جستجوی هتل' : 'جستجوی پرواز'}</span>
+            </div>
+            <div className="summary-row">
+              <span className="summary-label">
+                <PinIcon className="icon" />
+                {isHotel ? 'مقصد' : 'مسیر'}
+              </span>
+              <span className="summary-value">
+                {isHotel
+                  ? accumulatedSlots.destination.name
+                  : `${accumulatedSlots.origin.name} ← ${accumulatedSlots.destination.name}`}
+              </span>
+            </div>
+            <div className="summary-row">
+              <span className="summary-label">
+                <CalendarIcon className="icon" />
+                تاریخ
+              </span>
+              <span className="summary-value">{formatJalali(accumulatedSlots.date)}</span>
+            </div>
+            <div className="summary-row">
+              <span className="summary-label">
+                <PassengersIcon className="icon" />
+                مسافران
+              </span>
+              <span className="summary-value">
+                {toPersianDigits(accumulatedSlots.adults ?? 1)} نفر
+              </span>
+            </div>
+          </div>
+
+          {searchUrl ? (
+            <button className="btn-primary" onClick={handleSearch}>
+              درسته، جستجو کن
+            </button>
+          ) : (
+            <div className="notice">
+              <SparkleIcon className="icon" />
+              جستجوی هتل هنوز به ۷۸۰ وصل نشده — در قدم‌های بعدی اضافه می‌شود.
+            </div>
+          )}
+          <button className="btn-secondary" onClick={handleCorrect}>
+            اصلاح کن
+          </button>
+        </>
+      )}
+
+      {state.phase === 'redirecting' && (
+        <div className="redirect-stage">
+          <div className="check-badge">
+            <CheckIcon className="icon" />
+          </div>
+          <p className="redirect-title">در حال انتقال به ۷۸۰</p>
+          <p className="redirect-sub">
+            نتایج جستجو در تب جدید باز شد.
+            <br />
+            اگه باز نشد، از لینک زیر استفاده کن.
+          </p>
+          {searchUrl && (
+            <a className="url-chip" href={searchUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLinkIcon className="icon" />
+              780.ir
+            </a>
+          )}
+          <button className="btn-secondary" onClick={handleNewSearch}>
+            جستجوی جدید
+          </button>
+        </div>
       )}
 
       {state.phase === 'error' && (
         <div className="error-box">
           <p>{state.error}</p>
-          <button className="retry-button" onClick={handleErrorRetry}>
+          <button className="btn-secondary" onClick={handleErrorRetry}>
             تلاش دوباره
           </button>
         </div>
       )}
 
-      {state.phase === 'result' && (
-        <div className="result">
-          <p className="heard">متن تشخیص داده‌شده: «{lastTranscript}»</p>
-          <SlotSummary slots={accumulatedSlots} />
-          {searchUrl ? (
-            <button
-              className="cta"
-              onClick={() => window.open(searchUrl, '_blank', 'noopener')}
-            >
-              جستجو در ۷۸۰
-            </button>
-          ) : (
-            <p className="missing-hint">
-              جستجوی هتل هنوز به ۷۸۰ وصل نشده — در قدم‌های بعدی اضافه می‌شود.
-            </p>
-          )}
-          <button className="retry-button" onClick={handleNewSearch}>
-            جستجوی جدید
-          </button>
-          <pre className="result-json">{JSON.stringify(accumulatedSlots, null, 2)}</pre>
-        </div>
+      {(lastTranscript || accumulatedSlots) && (
+        <details className="debug">
+          <summary>جزئیات فنی</summary>
+          {lastTranscript && <p className="debug-heard">متن تشخیص داده‌شده: «{lastTranscript}»</p>}
+          <pre>{JSON.stringify(accumulatedSlots, null, 2)}</pre>
+        </details>
       )}
     </div>
   )

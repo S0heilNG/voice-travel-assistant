@@ -1,0 +1,65 @@
+/* Design tokens extracted from the brand mockups in src/assets/*.svg.
+   Every value here appears literally in those files — treat this as the
+   single source of truth for the UI and never hard-code a brand color. */
+
+:root {
+  /* Brand palette */
+  --c-bg: #0f2e4c;
+  --c-accent: #e91e8c;
+  --c-accent-dark: #c81577;
+  --c-pink: #f472b6;
+  --c-pink-soft: #f9a8d4;
+  --c-green: #2ecc8f;
+  --grad-accent: linear-gradient(135deg, #e91e8c 0%, #c81577 100%);
+  --glow-mic: radial-gradient(circle, rgba(233, 30, 140, 0.35) 0%, rgba(233, 30, 140, 0) 70%);
+
+  /* Translucent surfaces (white over navy) */
+  --c-surface: rgba(255, 255, 255, 0.06);
+  --c-surface-weak: rgba(255, 255, 255, 0.05);
+  --c-border: rgba(255, 255, 255, 0.1);
+  --c-border-strong: rgba(255, 255, 255, 0.12);
+
+  /* Text opacities */
+  --c-text: rgba(255, 255, 255, 1);
+  --c-text-2: rgba(255, 255, 255, 0.85);
+  --c-text-3: rgba(255, 255, 255, 0.75);
+  --c-text-4: rgba(255, 255, 255, 0.5);
+  --c-text-5: rgba(255, 255, 255, 0.4);
+  --c-text-6: rgba(255, 255, 255, 0.25);
+
+  /* Accent tints */
+  --c-accent-tint: rgba(233, 30, 140, 0.18);
+  --c-accent-tint-weak: rgba(233, 30, 140, 0.08);
+  --c-accent-tint-mid: rgba(233, 30, 140, 0.15);
+  --c-accent-border: rgba(233, 30, 140, 0.4);
+  --c-green-tint: rgba(46, 204, 143, 0.15);
+  --c-green-tint-strong: rgba(46, 204, 143, 0.2);
+
+  /* Radii */
+  --r-pill: 999px;
+  --r-lg: 18px;
+  --r-md: 16px;
+  --r-sm: 14px;
+
+  /* Type scale */
+  --fs-hero: 21px;
+  --fs-question: 18px;
+  --fs-lg: 15px;
+  --fs-base: 14px;
+  --fs-md: 13.5px;
+  --fs-sm: 12px;
+  --fs-xs: 11.5px;
+  --fs-2xs: 11px;
+
+  /* Spacing (page gutter is 24px in the 360px mockups) */
+  --sp-page: 24px;
+  --sp-1: 8px;
+  --sp-2: 12px;
+  --sp-3: 16px;
+  --sp-4: 20px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* Mobile-first frame width */
+  --frame-max: 420px;
+}

@@ -1,0 +1,31 @@
+<svg width="360" height="720" viewBox="0 0 360 720" xmlns="http://www.w3.org/2000/svg">
+  <title>03 Clarification</title>
+  <defs>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E91E8C"/>
+      <stop offset="100%" stop-color="#C81577"/>
+    </linearGradient>
+    <radialGradient id="micGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E91E8C" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#E91E8C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="360" height="720" fill="#0F2E4C"/>
+  <rect x="150" y="14" width="60" height="10" rx="5" fill="#000000" fill-opacity="0.9"/>
+<path d="M 24 48 L 18 54 L 24 60" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180.0" y="59" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="14" font-weight="500" fill="#FFFFFF" fill-opacity="0.9" text-anchor="middle" direction="rtl">یک سوال کوچیک</text>
+<circle cx="320" cy="54" r="3" fill="#E91E8C" fill-opacity="1"/>
+<circle cx="330" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<circle cx="340" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<text x="180.0" y="230" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF" fill-opacity="1" text-anchor="middle" direction="rtl">منظورت از «آخر هفته»</text>
+<text x="180.0" y="258" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="18" font-weight="700" fill="#FFFFFF" fill-opacity="1" text-anchor="middle" direction="rtl">کدوم تاریخه؟</text>
+<rect x="24" y="310" width="312" height="52" rx="14" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+<text x="316" y="342" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.85" text-anchor="end" direction="rtl">پنجشنبه ۱۹ تیر</text>
+<rect x="24" y="372" width="312" height="52" rx="14" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+<text x="316" y="404" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.85" text-anchor="end" direction="rtl">جمعه ۲۰ تیر</text>
+<rect x="24" y="434" width="312" height="52" rx="14" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+<text x="316" y="466" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.85" text-anchor="end" direction="rtl">تاریخ دیگه‌ای می‌خوام بگم</text>
+<circle cx="180.0" cy="536" r="18" fill="#E91E8C" fill-opacity="0.15"/>
+<g stroke="#F472B6" stroke-width="1.8" fill="none" stroke-linecap="round"><rect x="176.85" y="527.9" width="6.3" height="10.8" rx="3.15" fill="#F472B6" stroke="none"/><path d="M 172.8 535.1 A 7.2 7.2 0 0 0 187.2 535.1" /><line x1="180.0" y1="542.3" x2="180.0" y2="545.9"/><line x1="176.4" y1="545.9" x2="183.6" y2="545.9"/></g>
+<text x="180.0" y="570" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11" font-weight="400" fill="#FFFFFF" fill-opacity="0.4" text-anchor="middle" direction="rtl">یا با صدا جواب بده</text>
+</svg>

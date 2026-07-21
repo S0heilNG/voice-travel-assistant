@@ -1,0 +1,48 @@
+<svg width="360" height="720" viewBox="0 0 360 720" xmlns="http://www.w3.org/2000/svg">
+  <title>01 Listening</title>
+  <defs>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E91E8C"/>
+      <stop offset="100%" stop-color="#C81577"/>
+    </linearGradient>
+    <radialGradient id="micGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E91E8C" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#E91E8C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="360" height="720" fill="#0F2E4C"/>
+  <rect x="150" y="14" width="60" height="10" rx="5" fill="#000000" fill-opacity="0.9"/>
+<path d="M 24 48 L 18 54 L 24 60" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180.0" y="59" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="14" font-weight="500" fill="#FFFFFF" fill-opacity="0.9" text-anchor="middle" direction="rtl">در حال گوش دادن</text>
+<circle cx="320" cy="54" r="3" fill="#E91E8C" fill-opacity="1"/>
+<circle cx="330" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<circle cx="340" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<circle cx="180.0" cy="220" r="56" fill="#E91E8C" fill-opacity="0.15" stroke="#E91E8C" stroke-width="2" stroke-opacity="1"/>
+<g stroke="#F472B6" stroke-width="2.8" fill="none" stroke-linecap="round"><rect x="175.1" y="207.4" width="9.799999999999999" height="16.799999999999997" rx="4.8999999999999995" fill="#F472B6" stroke="none"/><path d="M 168.8 218.6 A 11.2 11.2 0 0 0 191.2 218.6" /><line x1="180.0" y1="229.8" x2="180.0" y2="235.4"/><line x1="174.4" y1="235.4" x2="185.6" y2="235.4"/></g>
+<rect x="73.0" y="324.4" width="4" height="11.200000000000001" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="83.0" y="309.9695238058757" width="4" height="40.060952388248566" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="93.0" y="302.3259260482585" width="4" height="55.34814790348301" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="103.0" y="305.06411018706524" width="4" height="49.87177962586956" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="113.0" y="316.89626543650775" width="4" height="26.20746912698455" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="123.0" y="316.5424556997525" width="4" height="26.915088600494972" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="133.0" y="304.8767026979356" width="4" height="50.24659460412873" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="143.0" y="302.3930614772149" width="4" height="55.2138770455701" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="153.0" y="310.25962731166" width="4" height="39.480745376680005" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="163.0" y="324.0233686291506" width="4" height="11.953262741698868" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="173.0" y="309.6835001886991" width="4" height="40.63299962260176" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="183.0" y="302.2650315611552" width="4" height="55.46993687768961" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="193.0" y="305.2569844588225" width="4" height="49.48603108235501" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="203.0" y="317.2521966833745" width="4" height="25.495606633250976" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="213.0" y="316.19086750475685" width="4" height="27.61826499048632" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="223.0" y="304.6948149766346" width="4" height="50.61037004673082" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="233.0" y="302.4664188670105" width="4" height="55.06716226597903" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="243.0" y="310.5537286858904" width="4" height="38.892542628219154" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="253.0" y="323.6468437422465" width="4" height="12.706312515506925" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="263.0" y="309.40163732679616" width="4" height="41.19672534640773" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="273.0" y="302.2103952324349" width="4" height="55.5792095351302" rx="2.0" fill="#E91E8C" fill-opacity="1"/>
+<rect x="283.0" y="305.45527098239825" width="4" height="49.089458035203464" rx="2.0" fill="#F472B6" fill-opacity="1"/>
+<rect x="40" y="400" width="280" height="90" rx="18" fill="#FFFFFF" fill-opacity="0.06"/>
+<text x="180.0" y="430" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="14" font-weight="400" fill="#FFFFFF" fill-opacity="1" text-anchor="middle" direction="rtl">«آخر هفته بلیط تهران به مشهد</text>
+<text x="180.0" y="456" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="14" font-weight="400" fill="#FFFFFF" fill-opacity="1" text-anchor="middle" direction="rtl">برای دو نفر می‌خوام...»</text>
+<text x="180.0" y="660" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11" font-weight="400" fill="#FFFFFF" fill-opacity="0.35" text-anchor="middle" direction="rtl">برای پایان صحبت، دکمه رو رها کن</text>
+</svg>

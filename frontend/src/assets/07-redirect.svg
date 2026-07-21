@@ -1,0 +1,24 @@
+<svg width="360" height="720" viewBox="0 0 360 720" xmlns="http://www.w3.org/2000/svg">
+  <title>07 Redirect</title>
+  <defs>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E91E8C"/>
+      <stop offset="100%" stop-color="#C81577"/>
+    </linearGradient>
+    <radialGradient id="micGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E91E8C" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#E91E8C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="360" height="720" fill="#0F2E4C"/>
+  <rect x="150" y="14" width="60" height="10" rx="5" fill="#000000" fill-opacity="0.9"/>
+<circle cx="180.0" cy="260" r="36" fill="#2ECC8F" fill-opacity="0.15"/>
+<path d="M 169.2 260 L 177.3 269.0 L 190.8 249.2" stroke="#2ECC8F" stroke-width="4.32" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180.0" y="330" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="15" font-weight="600" fill="#FFFFFF" fill-opacity="1" text-anchor="middle" direction="rtl">در حال انتقال به صفحه پرداخت</text>
+<text x="180.0" y="362" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.45" text-anchor="middle" direction="rtl">اطلاعات پرواز انتخابی‌ت از قبل توی فرم</text>
+<text x="180.0" y="382" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.45" text-anchor="middle" direction="rtl">پر شده — فقط کافیه پرداخت رو تکمیل کنی</text>
+<rect x="100.0" y="410" width="160" height="40" rx="14" fill="#FFFFFF" fill-opacity="0.06"/>
+<g fill="none" stroke="#F472B6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 125.0 424 L 132.0 424 L 132.0 431"/><line x1="132.0" y1="424" x2="124.0" y2="432"/><path d="M 128.0 427 L 120.0 427 L 120.0 436 L 129.0 436 L 129.0 429"/></g>
+<text x="244.0" y="434" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="12" font-weight="400" fill="#FFFFFF" fill-opacity="0.7" text-anchor="end" direction="rtl">۷۸۰.com/checkout</text>
+<text x="180.0" y="650" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11" font-weight="400" fill="#FFFFFF" fill-opacity="0.3" text-anchor="middle" direction="rtl">جرنی دستیار صوتی اینجا به پایان می‌رسه</text>
+</svg>

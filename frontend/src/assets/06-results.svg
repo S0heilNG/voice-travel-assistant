@@ -1,0 +1,50 @@
+<svg width="360" height="720" viewBox="0 0 360 720" xmlns="http://www.w3.org/2000/svg">
+  <title>06 Results</title>
+  <defs>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E91E8C"/>
+      <stop offset="100%" stop-color="#C81577"/>
+    </linearGradient>
+    <radialGradient id="micGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E91E8C" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#E91E8C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="360" height="720" fill="#0F2E4C"/>
+  <rect x="150" y="14" width="60" height="10" rx="5" fill="#000000" fill-opacity="0.9"/>
+<path d="M 24 48 L 18 54 L 24 60" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180.0" y="59" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="14" font-weight="500" fill="#FFFFFF" fill-opacity="0.9" text-anchor="middle" direction="rtl">۵ گزینه برتر</text>
+<circle cx="320" cy="54" r="3" fill="#E91E8C" fill-opacity="1"/>
+<circle cx="330" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<circle cx="340" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<text x="336" y="78" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11" font-weight="400" fill="#FFFFFF" fill-opacity="0.4" text-anchor="end" direction="rtl">تهران → مشهد · جمعه ۲۰ تیر · ۲ نفر</text>
+<rect x="20" y="98" width="320" height="88" rx="16" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+<text x="324" y="128" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#FFFFFF" fill-opacity="1" text-anchor="end" direction="rtl">ماهان ایر</text>
+<rect x="30" y="114" width="90" height="22" rx="11" fill="#2ECC8F" fill-opacity="0.15"/>
+<text x="75.0" y="129" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="10" font-weight="400" fill="#2ECC8F" fill-opacity="1" text-anchor="middle" direction="rtl">بهترین گزینه</text>
+<text x="324" y="156" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.5" text-anchor="end" direction="rtl">۰۸:۳۰ → ۰۹:۵۰ · مستقیم</text>
+<text x="36" y="156" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="9.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.4" text-anchor="start" direction="rtl">تومان</text>
+<text x="70" y="157" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#F9A8D4" fill-opacity="1" text-anchor="start" direction="rtl">۴,۲۵۰,۰۰۰</text>
+<rect x="20" y="198" width="320" height="88" rx="16" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+<text x="324" y="228" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#FFFFFF" fill-opacity="1" text-anchor="end" direction="rtl">ایران ایر</text>
+<rect x="30" y="214" width="90" height="22" rx="11" fill="#2ECC8F" fill-opacity="0.15"/>
+<text x="75.0" y="229" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="10" font-weight="400" fill="#2ECC8F" fill-opacity="1" text-anchor="middle" direction="rtl">ارزان‌ترین</text>
+<text x="324" y="256" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.5" text-anchor="end" direction="rtl">۱۱:۱۵ → ۱۲:۴۰ · مستقیم</text>
+<text x="36" y="256" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="9.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.4" text-anchor="start" direction="rtl">تومان</text>
+<text x="70" y="257" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#F9A8D4" fill-opacity="1" text-anchor="start" direction="rtl">۳,۸۹۰,۰۰۰</text>
+<rect x="20" y="298" width="320" height="88" rx="16" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+<text x="324" y="328" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#FFFFFF" fill-opacity="1" text-anchor="end" direction="rtl">آسمان</text>
+<text x="324" y="356" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.5" text-anchor="end" direction="rtl">۱۴:۰۰ → ۱۵:۲۵ · مستقیم</text>
+<text x="36" y="356" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="9.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.4" text-anchor="start" direction="rtl">تومان</text>
+<text x="70" y="357" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#F9A8D4" fill-opacity="1" text-anchor="start" direction="rtl">۴,۱۰۰,۰۰۰</text>
+<rect x="20" y="398" width="320" height="88" rx="16" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+<text x="324" y="428" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#FFFFFF" fill-opacity="1" text-anchor="end" direction="rtl">کاسپین</text>
+<text x="324" y="456" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.5" text-anchor="end" direction="rtl">۱۷:۴۵ → ۱۹:۱۰ · یک توقف</text>
+<text x="36" y="456" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="9.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.4" text-anchor="start" direction="rtl">تومان</text>
+<text x="70" y="457" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#F9A8D4" fill-opacity="1" text-anchor="start" direction="rtl">۳,۹۵۰,۰۰۰</text>
+<rect x="20" y="498" width="320" height="88" rx="16" fill="#FFFFFF" fill-opacity="0.06" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1"/>
+<text x="324" y="528" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#FFFFFF" fill-opacity="1" text-anchor="end" direction="rtl">زاگرس</text>
+<text x="324" y="556" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.5" text-anchor="end" direction="rtl">۲۰:۳۰ → ۲۱:۵۵ · مستقیم</text>
+<text x="36" y="556" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="9.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.4" text-anchor="start" direction="rtl">تومان</text>
+<text x="70" y="557" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#F9A8D4" fill-opacity="1" text-anchor="start" direction="rtl">۴,۴۸۰,۰۰۰</text>
+</svg>

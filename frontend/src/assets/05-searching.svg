@@ -1,0 +1,27 @@
+<svg width="360" height="720" viewBox="0 0 360 720" xmlns="http://www.w3.org/2000/svg">
+  <title>05 Searching</title>
+  <defs>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E91E8C"/>
+      <stop offset="100%" stop-color="#C81577"/>
+    </linearGradient>
+    <radialGradient id="micGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E91E8C" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#E91E8C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="360" height="720" fill="#0F2E4C"/>
+  <rect x="150" y="14" width="60" height="10" rx="5" fill="#000000" fill-opacity="0.9"/>
+<path d="M 24 48 L 18 54 L 24 60" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180.0" y="59" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="14" font-weight="500" fill="#FFFFFF" fill-opacity="0.9" text-anchor="middle" direction="rtl">در حال جستجو</text>
+<circle cx="320" cy="54" r="3" fill="#E91E8C" fill-opacity="1"/>
+<circle cx="330" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<circle cx="340" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<circle cx="180.0" cy="220" r="32" fill="none" fill-opacity="1" stroke="#FFFFFF" stroke-width="3" stroke-opacity="0.1"/>
+<path d="M 180.0 188 A 32 32 0 0 1 210.0 210" stroke="#E91E8C" stroke-width="3" fill="none" stroke-linecap="round"/>
+<path d="M 180.0 209.6 L 182.6 217.4 L 191.7 222.6 L 191.7 225.2 L 182.6 222.6 L 181.3 229.1 L 185.2 231.7 L 185.2 233.65 L 180.0 231.7 L 174.8 233.65 L 174.8 231.7 L 178.7 229.1 L 177.4 222.6 L 168.3 225.2 L 168.3 222.6 L 177.4 217.4 Z" fill="#F472B6"/>
+<text x="180.0" y="288" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#FFFFFF" fill-opacity="0.7" text-anchor="middle" direction="rtl">در حال جستجوی بهترین گزینه‌ها...</text>
+<rect x="24" y="330" width="312" height="56" rx="16" fill="#FFFFFF" fill-opacity="0.05"/>
+<rect x="24" y="396" width="312" height="56" rx="16" fill="#FFFFFF" fill-opacity="0.05"/>
+<rect x="24" y="462" width="312" height="56" rx="16" fill="#FFFFFF" fill-opacity="0.05"/>
+</svg>

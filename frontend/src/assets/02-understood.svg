@@ -1,0 +1,38 @@
+<svg width="360" height="720" viewBox="0 0 360 720" xmlns="http://www.w3.org/2000/svg">
+  <title>02 Understood</title>
+  <defs>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E91E8C"/>
+      <stop offset="100%" stop-color="#C81577"/>
+    </linearGradient>
+    <radialGradient id="micGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E91E8C" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#E91E8C" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="360" height="720" fill="#0F2E4C"/>
+  <rect x="150" y="14" width="60" height="10" rx="5" fill="#000000" fill-opacity="0.9"/>
+<path d="M 24 48 L 18 54 L 24 60" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180.0" y="59" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="14" font-weight="500" fill="#FFFFFF" fill-opacity="0.9" text-anchor="middle" direction="rtl">متوجه شدم</text>
+<circle cx="320" cy="54" r="3" fill="#E91E8C" fill-opacity="1"/>
+<circle cx="330" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<circle cx="340" cy="54" r="3" fill="#FFFFFF" fill-opacity="0.25"/>
+<circle cx="328" cy="100" r="14" fill="#2ECC8F" fill-opacity="0.2"/>
+<path d="M 321.4 100 L 326.35 105.5 L 334.6 93.4" stroke="#2ECC8F" stroke-width="2.64" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="304" y="105" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13" font-weight="400" fill="#FFFFFF" fill-opacity="0.85" text-anchor="end" direction="rtl">متن گفتار شما دریافت شد</text>
+<rect x="24" y="130" width="312" height="90" rx="16" fill="#FFFFFF" fill-opacity="0.06"/>
+<text x="320" y="155" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11" font-weight="400" fill="#FFFFFF" fill-opacity="0.5" text-anchor="end" direction="rtl">شنیده‌شده:</text>
+<text x="320" y="182" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#FFFFFF" fill-opacity="1" text-anchor="end" direction="rtl">«آخر هفته بلیط تهران به مشهد</text>
+<text x="320" y="205" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#FFFFFF" fill-opacity="1" text-anchor="end" direction="rtl">برای دو نفر می‌خوام»</text>
+<text x="336" y="254" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="11" font-weight="400" fill="#FFFFFF" fill-opacity="0.5" text-anchor="end" direction="rtl">اطلاعات استخراج‌شده</text>
+<rect x="260" y="272" width="76" height="30" rx="15.0" fill="#E91E8C" fill-opacity="0.18" stroke="#E91E8C" stroke-opacity="1" stroke-width="1"/>
+<text x="298.0" y="291.0" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="12" font-weight="500" fill="#F9A8D4" fill-opacity="1" text-anchor="middle" direction="rtl">✈️ پرواز</text>
+<rect x="142" y="272" width="110" height="30" rx="15.0" fill="#E91E8C" fill-opacity="0.18" stroke="#E91E8C" stroke-opacity="1" stroke-width="1"/>
+<text x="197.0" y="291.0" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="12" font-weight="500" fill="#F9A8D4" fill-opacity="1" text-anchor="middle" direction="rtl">تهران → مشهد</text>
+<rect x="74" y="272" width="60" height="30" rx="15.0" fill="#E91E8C" fill-opacity="0.18" stroke="#E91E8C" stroke-opacity="1" stroke-width="1"/>
+<text x="104.0" y="291.0" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="12" font-weight="500" fill="#F9A8D4" fill-opacity="1" text-anchor="middle" direction="rtl">۲ نفر</text>
+<rect x="24" y="326" width="312" height="58" rx="14" fill="#E91E8C" fill-opacity="0.08" stroke="#E91E8C" stroke-opacity="0.4" stroke-width="1"/>
+<path d="M 48 347 L 50 353 L 56 355 L 50 357 L 48 363 L 46 357 L 40 355 L 46 353 Z" fill="#F472B6"/>
+<text x="296" y="350" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="12" font-weight="400" fill="#F9A8D4" fill-opacity="1" text-anchor="end" direction="rtl">تاریخ دقیق مشخص نیست،</text>
+<text x="296" y="368" font-family="Vazirmatn, Tahoma, Arial, sans-serif" font-size="12" font-weight="400" fill="#F9A8D4" fill-opacity="1" text-anchor="end" direction="rtl">یک سوال کوچیک می‌پرسم...</text>
+</svg>
