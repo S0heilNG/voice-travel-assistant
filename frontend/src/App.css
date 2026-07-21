@@ -16,6 +16,35 @@
   font-size: var(--fs-2xs);
   color: var(--c-text-4);
   text-align: right;
+  flex: 1;
+}
+
+.header-idle {
+  margin-bottom: 0;
+}
+
+.tts-toggle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--c-text-4);
+  flex-shrink: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.tts-toggle:hover {
+  background: rgba(255, 255, 255, 0.11);
+  color: var(--c-text-2);
+}
+
+.tts-toggle .icon {
+  width: 17px;
+  height: 17px;
 }
 
 .header {

@@ -78,6 +78,32 @@ export function SparkleIcon({ className }) {
   )
 }
 
+// Not present in the mockups — drawn to match the line style of the icons
+// above (1.8 stroke, currentColor, rounded joins).
+export function SpeakerIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M 3 7.5 L 6 7.5 L 10 4 L 10 16 L 6 12.5 L 3 12.5 Z" />
+        <path d="M 12.8 7.6 A 3.4 3.4 0 0 1 12.8 12.4" />
+        <path d="M 15.2 5.2 A 6.6 6.6 0 0 1 15.2 14.8" />
+      </g>
+    </svg>
+  )
+}
+
+export function SpeakerOffIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M 3 7.5 L 6 7.5 L 10 4 L 10 16 L 6 12.5 L 3 12.5 Z" />
+        <line x1="13.2" y1="7.6" x2="17.6" y2="12.4" />
+        <line x1="17.6" y1="7.6" x2="13.2" y2="12.4" />
+      </g>
+    </svg>
+  )
+}
+
 export function ExternalLinkIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 16 18" fill="none" aria-hidden="true">

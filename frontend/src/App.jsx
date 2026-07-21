@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from 'react'
 import { parseText } from './api.js'
 import { useSpeechRecognition } from './useSpeechRecognition.js'
+import { useSpeechSynthesis } from './useSpeechSynthesis.js'
 import {
   CalendarIcon,
   CheckIcon,
@@ -9,6 +10,8 @@ import {
   PassengersIcon,
   PinIcon,
   SparkleIcon,
+  SpeakerIcon,
+  SpeakerOffIcon,
 } from './icons.jsx'
 import './App.css'
 
@@ -183,6 +186,30 @@ const TITLE_BY_PHASE = {
 
 const STEP_BY_PHASE = { listening: 0, settling: 0, processing: 0, clarifying: 1, confirming: 2 }
 
+// A short spoken summary for the confirm step — one natural sentence, not a
+// readout of every field.
+function buildConfirmSpeech(slots) {
+  const date = formatJalali(slots.date)
+  if (slots.intent === 'hotel_search') {
+    return `هتل در ${slots.destination.name} برای تاریخ ${date}. درسته؟`
+  }
+  const people = toPersianDigits(slots.adults ?? 1)
+  return `پرواز از ${slots.origin.name} به ${slots.destination.name} در تاریخ ${date} برای ${people} نفر. درسته؟`
+}
+
+function TtsToggle({ enabled, onToggle }) {
+  return (
+    <button
+      className="tts-toggle"
+      onClick={onToggle}
+      aria-label={enabled ? 'خاموش کردن صدای دستیار' : 'روشن کردن صدای دستیار'}
+      title={enabled ? 'صدای دستیار روشن است' : 'صدای دستیار خاموش است'}
+    >
+      {enabled ? <SpeakerIcon className="icon" /> : <SpeakerOffIcon className="icon" />}
+    </button>
+  )
+}
+
 function SlotChips({ slots }) {
   if (!slots) return null
   const chips = []
@@ -213,6 +240,9 @@ function App() {
     resetTranscript,
   } = useSpeechRecognition({ lang: 'fa-IR' })
 
+  const { hasPersianVoice, speak, cancel: cancelSpeech } = useSpeechSynthesis()
+  const [ttsEnabled, setTtsEnabled] = useState(true)
+
   const [useTextMode, setUseTextMode] = useState(!isSupported)
   const [textValue, setTextValue] = useState('')
   // Accumulated conversation context. null = no conversation in progress.
@@ -223,6 +253,8 @@ function App() {
   async function submit(rawText) {
     const trimmed = rawText.trim()
     if (!trimmed) return
+    // Covers the typed and suggestion-chip paths the mic handler doesn't.
+    cancelSpeech()
     setLastTranscript(trimmed)
     dispatch({ type: 'PROCESSING' })
 
@@ -299,9 +331,34 @@ function App() {
     }
   }, [isListening, state.phase, transcript, accumulatedSlots])
 
+  // Read out whatever the app is telling the user. Keyed on the message
+  // itself, so re-entering a phase with the same text doesn't repeat it, but a
+  // new question or error does get spoken.
+  useEffect(() => {
+    if (!ttsEnabled || !hasPersianVoice) return
+    if (state.phase === 'clarifying' && state.question) {
+      speak(state.question)
+    } else if (state.phase === 'confirming' && accumulatedSlots) {
+      speak(buildConfirmSpeech(accumulatedSlots))
+    } else if (state.phase === 'error' && state.error) {
+      speak(state.error)
+    } else if (state.phase === 'idle' && state.notice) {
+      speak(state.notice)
+    }
+  }, [state.phase, state.question, state.error, state.notice, ttsEnabled, hasPersianVoice]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stop speaking before the mic opens, otherwise recognition picks up the
+  // assistant's own voice.
   function handleMicClick() {
+    cancelSpeech()
     dispatch({ type: 'LISTENING' })
     startListening()
+  }
+
+  function toggleTts() {
+    const next = !ttsEnabled
+    setTtsEnabled(next)
+    if (!next) cancelSpeech()
   }
 
   function handleTextSubmit(e) {
@@ -394,22 +451,23 @@ function App() {
 
   return (
     <div className="app">
-      {state.phase === 'idle' ? (
-        <p className="brand">دستیار سفر هفت‌هشتاد</p>
-      ) : (
-        title && (
-          <div className="header">
-            <span className="header-title">{title}</span>
-            {step !== undefined && (
-              <span className="dots">
-                {[0, 1, 2].map((i) => (
-                  <span key={i} className={`dot${i === step ? ' active' : ''}`} />
-                ))}
-              </span>
-            )}
-          </div>
-        )
-      )}
+      <div className={`header${state.phase === 'idle' ? ' header-idle' : ''}`}>
+        {state.phase === 'idle' ? (
+          <span className="brand">دستیار سفر هفت‌هشتاد</span>
+        ) : (
+          <span className="header-title">{title}</span>
+        )}
+        {step !== undefined && (
+          <span className="dots">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className={`dot${i === step ? ' active' : ''}`} />
+            ))}
+          </span>
+        )}
+        {/* Hidden entirely when no Persian voice exists — the control would
+            do nothing. */}
+        {hasPersianVoice && <TtsToggle enabled={ttsEnabled} onToggle={toggleTts} />}
+      </div>
 
       {state.phase === 'idle' && (
         <>
