@@ -395,6 +395,12 @@
   font-weight: 500;
 }
 
+.summary-note {
+  color: var(--c-text-4);
+  font-weight: 400;
+  font-size: var(--fs-xs);
+}
+
 /* ---------- Buttons ---------- */
 
 .btn-primary {

@@ -2,6 +2,7 @@ import { useEffect, useReducer, useState } from 'react'
 import { parseText } from './api.js'
 import { useSpeechRecognition } from './useSpeechRecognition.js'
 import { useSpeechSynthesis } from './useSpeechSynthesis.js'
+import { addJalaliDays, buildHotelSearchUrl, lookupHotelCity } from './hotelCities.js'
 import {
   CalendarIcon,
   CheckIcon,
@@ -91,11 +92,16 @@ function computeMissing(slots) {
   return missing
 }
 
-// Builds the 780.ir flight URL from accumulated slots (same scheme as the
-// backend's internal/searchurl). Returns null when it can't be built yet or
-// for hotel intent (no 780 URL scheme wired up for hotels yet).
+// Temporary default until the "how many nights?" question lands.
+const HOTEL_NIGHTS = 1
+
+// Builds the 780.ir URL from accumulated slots (same schemes as the backend's
+// internal/searchurl). Returns null when it can't be built yet — including a
+// hotel in a city 780.ir doesn't cover.
 function buildSearchUrl(slots) {
-  if (!slots || slots.intent !== 'flight_search') return null
+  if (!slots) return null
+  if (slots.intent === 'hotel_search') return buildHotelSearchUrl(slots, HOTEL_NIGHTS)
+  if (slots.intent !== 'flight_search') return null
   if (!slots.origin || !slots.destination || !slots.date) return null
   return (
     `https://780.ir/tourism/flights/${slots.origin.iata}-${slots.destination.iata}` +
@@ -191,7 +197,8 @@ const STEP_BY_PHASE = { listening: 0, settling: 0, processing: 0, clarifying: 1,
 function buildConfirmSpeech(slots) {
   const date = formatJalali(slots.date)
   if (slots.intent === 'hotel_search') {
-    return `هتل در ${slots.destination.name} برای تاریخ ${date}. درسته؟`
+    const nights = toPersianDigits(HOTEL_NIGHTS)
+    return `هتل در ${slots.destination.name}، ورود ${date}، ${nights} شب. درسته؟`
   }
   const people = toPersianDigits(slots.adults ?? 1)
   return `پرواز از ${slots.origin.name} به ${slots.destination.name} در تاریخ ${date} برای ${people} نفر. درسته؟`
@@ -402,6 +409,9 @@ function App() {
   const showTextInput = !isSupported || useTextMode
   const searchUrl = buildSearchUrl(accumulatedSlots)
   const isHotel = accumulatedSlots?.intent === 'hotel_search'
+  // A city we understood, but one 780.ir has no hotel coverage for.
+  const hotelCityUnsupported =
+    isHotel && !!accumulatedSlots?.destination && !lookupHotelCity(accumulatedSlots.destination.iata)
   const title = TITLE_BY_PHASE[state.phase]
   const step = STEP_BY_PHASE[state.phase]
 
@@ -562,19 +572,33 @@ function App() {
             <div className="summary-row">
               <span className="summary-label">
                 <CalendarIcon className="icon" />
-                تاریخ
+                {isHotel ? 'ورود' : 'تاریخ'}
               </span>
               <span className="summary-value">{formatJalali(accumulatedSlots.date)}</span>
             </div>
-            <div className="summary-row">
-              <span className="summary-label">
-                <PassengersIcon className="icon" />
-                مسافران
-              </span>
-              <span className="summary-value">
-                {toPersianDigits(accumulatedSlots.adults ?? 1)} نفر
-              </span>
-            </div>
+            {isHotel && (
+              <div className="summary-row">
+                <span className="summary-label">
+                  <CalendarIcon className="icon" />
+                  خروج
+                </span>
+                <span className="summary-value">
+                  {formatJalali(addJalaliDays(accumulatedSlots.date, HOTEL_NIGHTS))}
+                  <span className="summary-note"> ({toPersianDigits(HOTEL_NIGHTS)} شب)</span>
+                </span>
+              </div>
+            )}
+            {!isHotel && (
+              <div className="summary-row">
+                <span className="summary-label">
+                  <PassengersIcon className="icon" />
+                  مسافران
+                </span>
+                <span className="summary-value">
+                  {toPersianDigits(accumulatedSlots.adults ?? 1)} نفر
+                </span>
+              </div>
+            )}
           </div>
 
           {searchUrl ? (
@@ -584,7 +608,9 @@ function App() {
           ) : (
             <div className="notice">
               <SparkleIcon className="icon" />
-              جستجوی هتل هنوز به ۷۸۰ وصل نشده — در قدم‌های بعدی اضافه می‌شود.
+              {hotelCityUnsupported
+                ? `فعلاً برای هتلِ ${accumulatedSlots.destination.name} پشتیبانی نداریم، ولی به‌زودی اضافه می‌شود.`
+                : 'فعلاً امکان جستجو برای این درخواست وجود ندارد.'}
             </div>
           )}
           <button className="btn-secondary" onClick={handleCorrect}>
