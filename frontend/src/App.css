@@ -517,6 +517,10 @@
   flex-shrink: 0;
 }
 
+.notice-voice {
+  margin-bottom: var(--sp-3);
+}
+
 .error-box {
   background: var(--c-surface);
   border: 1px solid var(--c-accent-border);

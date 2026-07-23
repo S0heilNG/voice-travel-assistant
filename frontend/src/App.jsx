@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useState } from 'react'
 import { parseText } from './api.js'
-import { useSpeechRecognition } from './useSpeechRecognition.js'
+import { useSpeechRecognition, VOICE_UNAVAILABLE_CODES } from './useSpeechRecognition.js'
 import { useSpeechSynthesis } from './useSpeechSynthesis.js'
 import { addJalaliDays, buildHotelSearchUrl, lookupHotelCity } from './hotelCities.js'
 import {
@@ -243,6 +243,7 @@ function App() {
     transcript,
     interimTranscript,
     error: speechError,
+    errorCode: speechErrorCode,
     startListening,
     resetTranscript,
   } = useSpeechRecognition({ lang: 'fa-IR' })
@@ -256,12 +257,19 @@ function App() {
   const [accumulatedSlots, setAccumulatedSlots] = useState(null)
   // Exact text sent to the NLU (for the debug display).
   const [lastTranscript, setLastTranscript] = useState('')
+  // Shown above the text box after we auto-switch away from voice because the
+  // device can't do speech recognition.
+  const [voiceNotice, setVoiceNotice] = useState('')
+  // Raw speech error code, surfaced in the debug section for on-device
+  // diagnosis (e.g. reading it off an iPhone).
+  const [lastErrorCode, setLastErrorCode] = useState('')
 
   async function submit(rawText) {
     const trimmed = rawText.trim()
     if (!trimmed) return
     // Covers the typed and suggestion-chip paths the mic handler doesn't.
     cancelSpeech()
+    setVoiceNotice('')
     setLastTranscript(trimmed)
     dispatch({ type: 'PROCESSING' })
 
@@ -325,18 +333,30 @@ function App() {
 
   // Speech recognition raised an error (mic denied, network, no-speech, ...).
   useEffect(() => {
-    if (speechError) {
-      dispatch({ type: 'ERROR', error: speechError })
+    if (!speechError) return
+    setLastErrorCode(speechErrorCode || '')
+
+    // Device can't do speech at all → don't dead-end on an error screen.
+    // Switch to typing, keep any conversation context, and explain why.
+    if (VOICE_UNAVAILABLE_CODES.has(speechErrorCode)) {
+      setUseTextMode(true)
+      setVoiceNotice(speechError)
+      dispatch(accumulatedSlots ? { type: 'RESUME_CLARIFY' } : { type: 'RESET' })
+      return
     }
-  }, [speechError])
+
+    dispatch({ type: 'ERROR', error: speechError })
+  }, [speechError]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Recognition ended while listening with no transcript: user said nothing.
   // Resume the pending clarification if mid-conversation, else back to idle.
+  // Skip when an error is present — that's handled by the error effect above,
+  // and onend can fire in the same tick as onerror.
   useEffect(() => {
-    if (!isListening && state.phase === 'listening' && !transcript) {
+    if (!speechError && !isListening && state.phase === 'listening' && !transcript) {
       dispatch(accumulatedSlots ? { type: 'RESUME_CLARIFY' } : { type: 'RESET' })
     }
-  }, [isListening, state.phase, transcript, accumulatedSlots])
+  }, [isListening, state.phase, transcript, accumulatedSlots, speechError])
 
   // Read out whatever the app is telling the user. Keyed on the message
   // itself, so re-entering a phase with the same text doesn't repeat it, but a
@@ -379,6 +399,7 @@ function App() {
     setAccumulatedSlots(null)
     setLastTranscript('')
     setTextValue('')
+    setVoiceNotice('')
     resetTranscript()
     dispatch({ type: 'RESET' })
   }
@@ -419,6 +440,12 @@ function App() {
     if (showTextInput) {
       return (
         <>
+          {voiceNotice && (
+            <div className="notice notice-voice">
+              <SparkleIcon className="icon" />
+              {voiceNotice}
+            </div>
+          )}
           <form className="text-form" onSubmit={handleTextSubmit}>
             <input
               type="text"
@@ -651,11 +678,14 @@ function App() {
         </div>
       )}
 
-      {(lastTranscript || accumulatedSlots) && (
+      {(lastTranscript || accumulatedSlots || lastErrorCode) && (
         <details className="debug">
           <summary>جزئیات فنی</summary>
           {lastTranscript && <p className="debug-heard">متن تشخیص داده‌شده: «{lastTranscript}»</p>}
-          <pre>{JSON.stringify(accumulatedSlots, null, 2)}</pre>
+          {lastErrorCode && (
+            <p className="debug-heard">کد خطای تشخیص گفتار: {lastErrorCode}</p>
+          )}
+          {accumulatedSlots && <pre>{JSON.stringify(accumulatedSlots, null, 2)}</pre>}
         </details>
       )}
     </div>
