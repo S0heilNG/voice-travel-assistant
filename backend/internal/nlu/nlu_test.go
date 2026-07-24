@@ -63,7 +63,7 @@ func TestParse(t *testing.T) {
 			wantOrigin:  nil,
 			wantDest:    city("مشهد", "MHD"),
 			wantDate:    jd(1405, 5, 2),
-			wantMissing: nil,
+			wantMissing: []string{"nights"},
 		},
 		{
 			name:        "flight, explicit date, no origin",
@@ -81,7 +81,7 @@ func TestParse(t *testing.T) {
 			wantOrigin:  nil,
 			wantDest:    city("اصفهان", "IFN"),
 			wantDate:    nil,
-			wantMissing: []string{"date"},
+			wantMissing: []string{"date", "nights"},
 		},
 		{
 			name:        "unrelated sentence — unknown intent",
@@ -153,7 +153,7 @@ func TestParse(t *testing.T) {
 			wantOrigin:  nil,
 			wantDest:    city("کرمان", "KER"),
 			wantDate:    nil,
-			wantMissing: []string{"date"},
+			wantMissing: []string{"date", "nights"},
 		},
 		{
 			name:        "both keywords present — flight keyword comes first",
@@ -171,7 +171,7 @@ func TestParse(t *testing.T) {
 			wantOrigin:  nil,
 			wantDest:    city("مشهد", "MHD"),
 			wantDate:    jd(1405, 4, 27),
-			wantMissing: nil,
+			wantMissing: []string{"nights"},
 		},
 	}
 
@@ -328,7 +328,7 @@ func TestParseRealisticSentences(t *testing.T) {
 			wantOrigin:  nil,
 			wantDest:    city("مشهد", "MHD"),
 			wantDate:    jd(1405, 4, 27),
-			wantMissing: nil,
+			wantMissing: []string{"nights"},
 		},
 		{
 			name:        "bare route, no به, no date",
@@ -379,7 +379,7 @@ func TestParseRealisticSentences(t *testing.T) {
 			wantOrigin:  nil,
 			wantDest:    city("مشهد", "MHD"),
 			wantDate:    nil,
-			wantMissing: []string{"date"},
+			wantMissing: []string{"date", "nights"},
 		},
 	}
 

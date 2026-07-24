@@ -70,6 +70,7 @@ function mergeSlots(prev, result) {
       origin: result.origin,
       destination: result.destination,
       date: result.date,
+      nights: result.nights,
       adults: result.adults,
     }
   }
@@ -78,29 +79,31 @@ function mergeSlots(prev, result) {
     origin: prev.origin ?? result.origin,
     destination: prev.destination ?? result.destination,
     date: prev.date ?? result.date,
+    // nights is a number: 0 means "not given yet", so keep any positive value
+    // we already have and otherwise take the new one.
+    nights: prev.nights || result.nights,
     adults: prev.adults ?? result.adults,
   }
 }
 
 // Required fields per intent, computed over accumulated slots (mirrors the
-// backend's per-parse rule: origin is required only for flights).
+// backend's per-parse rule: origin is required only for flights; hotels need
+// a nights count).
 function computeMissing(slots) {
   const missing = []
   if (slots.intent === 'flight_search' && !slots.origin) missing.push('origin')
   if (!slots.destination) missing.push('destination')
   if (!slots.date) missing.push('date')
+  if (slots.intent === 'hotel_search' && !slots.nights) missing.push('nights')
   return missing
 }
-
-// Temporary default until the "how many nights?" question lands.
-const HOTEL_NIGHTS = 1
 
 // Builds the 780.ir URL from accumulated slots (same schemes as the backend's
 // internal/searchurl). Returns null when it can't be built yet — including a
 // hotel in a city 780.ir doesn't cover.
 function buildSearchUrl(slots) {
   if (!slots) return null
-  if (slots.intent === 'hotel_search') return buildHotelSearchUrl(slots, HOTEL_NIGHTS)
+  if (slots.intent === 'hotel_search') return buildHotelSearchUrl(slots, slots.nights)
   if (slots.intent !== 'flight_search') return null
   if (!slots.origin || !slots.destination || !slots.date) return null
   return (
@@ -111,6 +114,12 @@ function buildSearchUrl(slots) {
 
 // Warm, PRD-toned Persian question covering all missing fields at once.
 function buildQuestion(missing, slots) {
+  return slots.intent === 'hotel_search'
+    ? buildHotelQuestion(missing, slots)
+    : buildFlightQuestion(missing, slots)
+}
+
+function buildFlightQuestion(missing, slots) {
   const dest = slots.destination?.name
   const has = (f) => missing.includes(f)
 
@@ -138,6 +147,35 @@ function buildQuestion(missing, slots) {
   }
   if (has('date')) {
     return dest ? `چه تاریخی می‌خواید به ${dest} برید؟` : 'چه تاریخی می‌خواید سفر کنید؟'
+  }
+  return 'چه کمکی می‌تونم بکنم؟'
+}
+
+function buildHotelQuestion(missing, slots) {
+  const dest = slots.destination?.name
+  const has = (f) => missing.includes(f)
+  const inDest = dest ? ` در ${dest}` : ''
+
+  if (has('destination') && has('date') && has('nights')) {
+    return 'به کدوم شهر، چه تاریخی و چند شب می‌خواید برید؟'
+  }
+  if (has('destination') && has('date')) {
+    return 'به کدوم شهر و چه تاریخی می‌خواید برید؟'
+  }
+  if (has('destination') && has('nights')) {
+    return 'به کدوم شهر و چند شب می‌خواید بمونید؟'
+  }
+  if (has('date') && has('nights')) {
+    return `چه تاریخی و چند شب می‌خواید${inDest} بمونید؟`
+  }
+  if (has('destination')) {
+    return 'به کدوم شهر می‌خواید برید؟'
+  }
+  if (has('date')) {
+    return dest ? `چه تاریخی می‌خواید برید ${dest}؟` : 'چه تاریخی می‌خواید سفر کنید؟'
+  }
+  if (has('nights')) {
+    return `چند شب می‌خواید${inDest} بمونید؟`
   }
   return 'چه کمکی می‌تونم بکنم؟'
 }
@@ -197,7 +235,7 @@ const STEP_BY_PHASE = { listening: 0, settling: 0, processing: 0, clarifying: 1,
 function buildConfirmSpeech(slots) {
   const date = formatJalali(slots.date)
   if (slots.intent === 'hotel_search') {
-    const nights = toPersianDigits(HOTEL_NIGHTS)
+    const nights = toPersianDigits(slots.nights)
     return `هتل در ${slots.destination.name}، ورود ${date}، ${nights} شب. درسته؟`
   }
   const people = toPersianDigits(slots.adults ?? 1)
@@ -610,8 +648,8 @@ function App() {
                   خروج
                 </span>
                 <span className="summary-value">
-                  {formatJalali(addJalaliDays(accumulatedSlots.date, HOTEL_NIGHTS))}
-                  <span className="summary-note"> ({toPersianDigits(HOTEL_NIGHTS)} شب)</span>
+                  {formatJalali(addJalaliDays(accumulatedSlots.date, accumulatedSlots.nights))}
+                  <span className="summary-note"> ({toPersianDigits(accumulatedSlots.nights)} شب)</span>
                 </span>
               </div>
             )}

@@ -21,7 +21,8 @@ type ParseResult struct {
 	Intent      Intent
 	Origin      *City // stays nil for hotel search
 	Destination *City
-	Date        *JalaliDate
+	Date        *JalaliDate // check-in date for hotels, departure date for flights
+	Nights      int         // hotel stay length; 0 when unset/not applicable
 	Adults      int
 	RawText     string
 	Missing     []string // e.g. []string{"destination", "date"}
@@ -59,9 +60,23 @@ func parse(text string, now time.Time) ParseResult {
 		result.Missing = append(result.Missing, "destination")
 	}
 
-	result.Date = ParseDate(normalized, now)
-	if result.Date == nil {
-		result.Missing = append(result.Missing, "date")
+	if intent == IntentHotelSearch {
+		// Hotels need a check-in date and a stay length (from a range or an
+		// explicit nights count). Nights defaults to nothing so we ask.
+		checkIn, nights := parseHotelStay(normalized, now)
+		result.Date = checkIn
+		result.Nights = nights
+		if checkIn == nil {
+			result.Missing = append(result.Missing, "date")
+		}
+		if nights == 0 {
+			result.Missing = append(result.Missing, "nights")
+		}
+	} else {
+		result.Date = ParseDate(normalized, now)
+		if result.Date == nil {
+			result.Missing = append(result.Missing, "date")
+		}
 	}
 
 	return result

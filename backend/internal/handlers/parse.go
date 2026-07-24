@@ -19,6 +19,7 @@ type parseResponse struct {
 	Origin      *nlu.City       `json:"origin"`
 	Destination *nlu.City       `json:"destination"`
 	Date        *nlu.JalaliDate `json:"date"`
+	Nights      int             `json:"nights"`
 	Adults      int             `json:"adults"`
 	Missing     []string        `json:"missing"`
 	SearchURL   string          `json:"searchUrl"`
@@ -53,8 +54,8 @@ func parseText(c *fiber.Ctx) error {
 				searchURL = u
 			}
 		case nlu.IntentHotelSearch:
-			// One night is the temporary default until we ask how many.
-			u, err := searchurl.BuildHotelSearchURL(result, 1)
+			// Missing is empty here, so Nights is set (>= 1).
+			u, err := searchurl.BuildHotelSearchURL(result, result.Nights)
 			switch {
 			case err == nil:
 				searchURL = u
@@ -69,6 +70,7 @@ func parseText(c *fiber.Ctx) error {
 		Origin:             result.Origin,
 		Destination:        result.Destination,
 		Date:               result.Date,
+		Nights:             result.Nights,
 		Adults:             result.Adults,
 		Missing:            missing,
 		SearchURL:          searchURL,
