@@ -140,25 +140,24 @@ export function lookupHotelCity(iata) {
 }
 
 /**
- * Builds the 780.ir hotel results URL. Returns null when the city has no
- * hotel coverage or the slots aren't complete. requestId is intentionally
- * omitted — results render fine without it.
+ * Builds the 780.ir hotel URL for the destination. Returns null when the city
+ * has no hotel coverage or the slots aren't complete.
+ *
+ * TEMPORARY: 780's hotel *results* page
+ * (/tourism/hotel/search/{city}?checkInDate=...&cityId=...) ignores its URL
+ * query params in a clean browser session — the destination comes up
+ * `undefined` and the dates reset to defaults (verified in Incognito; failed
+ * with requestId, without it, and with readCache=false). Our earlier "working"
+ * tests were polluted by session cache. So instead of dropping the user on a
+ * broken results page, we send them to the *landing* page, which correctly
+ * resolves the city and lists its hotels; the confirm card tells them to pick
+ * the (already-known) dates there. The nights/date logic is kept intact and
+ * unused here — it comes back the moment 780 gives us the official hotel
+ * deep-link format. See CLAUDE.md "یکپارچه‌سازی با ۷۸۰".
  */
-export function buildHotelSearchUrl(slots, nights = 1) {
+export function buildHotelSearchUrl(slots) {
   if (!slots || !slots.destination || !slots.date) return null
   const hotelCity = lookupHotelCity(slots.destination.iata)
   if (!hotelCity) return null
-
-  const params = new URLSearchParams({
-    checkInDate: slots.date,
-    checkOutDate: addJalaliDays(slots.date, Math.max(1, nights)),
-    rooms: 'A',
-    destinationType: 'city',
-    sort: 'offer',
-    cityId: hotelCity.id,
-    cityName: slots.destination.name,
-    cityNameEng: hotelCity.nameEng,
-    readCache: 'true',
-  })
-  return `https://780.ir/tourism/hotel/search/${hotelCity.nameEng.toLowerCase()}?${params}`
+  return `https://780.ir/tourism/hotel/${hotelCity.nameEng.toLowerCase()}`
 }

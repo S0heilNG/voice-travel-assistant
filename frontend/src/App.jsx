@@ -103,7 +103,7 @@ function computeMissing(slots) {
 // hotel in a city 780.ir doesn't cover.
 function buildSearchUrl(slots) {
   if (!slots) return null
-  if (slots.intent === 'hotel_search') return buildHotelSearchUrl(slots, slots.nights)
+  if (slots.intent === 'hotel_search') return buildHotelSearchUrl(slots)
   if (slots.intent !== 'flight_search') return null
   if (!slots.origin || !slots.destination || !slots.date) return null
   return (
@@ -667,9 +667,24 @@ function App() {
           </div>
 
           {searchUrl ? (
-            <button className="btn-primary" onClick={handleSearch}>
-              درسته، جستجو کن
-            </button>
+            <>
+              {/* TEMPORARY (see CLAUDE.md): 780's hotel results page ignores
+                  URL dates, so we open the city landing page and ask the user
+                  to pick the dates — which we already know — there. */}
+              {isHotel && (
+                <div className="notice">
+                  <SparkleIcon className="icon" />
+                  {`مقصد رو توی ۷۸۰ برات باز می‌کنم — فقط تاریخ ورود «${formatJalali(
+                    accumulatedSlots.date,
+                  )}» تا «${formatJalali(
+                    addJalaliDays(accumulatedSlots.date, accumulatedSlots.nights),
+                  )}» رو همون‌جا انتخاب کن.`}
+                </div>
+              )}
+              <button className="btn-primary" onClick={handleSearch}>
+                {isHotel ? 'باشه، مقصد رو باز کن' : 'درسته، جستجو کن'}
+              </button>
+            </>
           ) : (
             <div className="notice">
               <SparkleIcon className="icon" />
