@@ -23,10 +23,12 @@ type parseResponse struct {
 	Adults      int             `json:"adults"`
 	Missing     []string        `json:"missing"`
 	SearchURL   string          `json:"searchUrl"`
-	// HotelCitySupported is false when we understood a hotel request for a
-	// city 780.ir doesn't cover, so the client can say so instead of just
-	// showing an empty searchUrl. It stays true for every non-hotel request.
-	HotelCitySupported bool `json:"hotelCitySupported"`
+	// CitySupported is false when we understood a hotel/train/bus request but
+	// 780.ir doesn't cover one of its cities, so the client can say so instead
+	// of just showing an empty searchUrl. It stays true for flights and for
+	// any request that isn't complete yet. (Renamed from hotelCitySupported now
+	// that train and bus can also hit an unsupported city.)
+	CitySupported bool `json:"citySupported"`
 }
 
 func parseText(c *fiber.Ctx) error {
@@ -46,7 +48,7 @@ func parseText(c *fiber.Ctx) error {
 	}
 
 	searchURL := ""
-	hotelCitySupported := true
+	citySupported := true
 	if len(result.Missing) == 0 {
 		switch result.Intent {
 		case nlu.IntentFlightSearch:
@@ -60,20 +62,36 @@ func parseText(c *fiber.Ctx) error {
 			case err == nil:
 				searchURL = u
 			case errors.Is(err, searchurl.ErrHotelCityUnsupported):
-				hotelCitySupported = false
+				citySupported = false
+			}
+		case nlu.IntentTrainSearch:
+			u, err := searchurl.BuildTrainSearchURL(result)
+			switch {
+			case err == nil:
+				searchURL = u
+			case errors.Is(err, searchurl.ErrTrainCityUnsupported):
+				citySupported = false
+			}
+		case nlu.IntentBusSearch:
+			u, err := searchurl.BuildBusSearchURL(result)
+			switch {
+			case err == nil:
+				searchURL = u
+			case errors.Is(err, searchurl.ErrBusCityUnsupported):
+				citySupported = false
 			}
 		}
 	}
 
 	return c.JSON(parseResponse{
-		Intent:             result.Intent,
-		Origin:             result.Origin,
-		Destination:        result.Destination,
-		Date:               result.Date,
-		Nights:             result.Nights,
-		Adults:             result.Adults,
-		Missing:            missing,
-		SearchURL:          searchURL,
-		HotelCitySupported: hotelCitySupported,
+		Intent:        result.Intent,
+		Origin:        result.Origin,
+		Destination:   result.Destination,
+		Date:          result.Date,
+		Nights:        result.Nights,
+		Adults:        result.Adults,
+		Missing:       missing,
+		SearchURL:     searchURL,
+		CitySupported: citySupported,
 	})
 }

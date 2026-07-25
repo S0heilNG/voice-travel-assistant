@@ -132,3 +132,67 @@ func TestHotelCitiesResolveInNLU(t *testing.T) {
 		}
 	}
 }
+
+func routeResult(intent nlu.Intent, oIATA, dIATA string, d nlu.JalaliDate) nlu.ParseResult {
+	return nlu.ParseResult{
+		Intent:      intent,
+		Origin:      &nlu.City{Name: oIATA, IATA: oIATA},
+		Destination: &nlu.City{Name: dIATA, IATA: dIATA},
+		Date:        &d,
+		Adults:      1,
+	}
+}
+
+func TestBuildTrainSearchURL(t *testing.T) {
+	d := nlu.JalaliDate{Year: 1405, Month: 5, Day: 20}
+	got, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "THR", "IFN", d))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// اصفهان must be "isfahan" for TRAIN.
+	want := "https://780.ir/tourism/train/tehran-isfahan?departureDate=1405-05-20&adult=1&child=0&infant=0"
+	if got != want {
+		t.Errorf("train URL =\n  %s\nwant\n  %s", got, want)
+	}
+}
+
+func TestBuildBusSearchURL(t *testing.T) {
+	d := nlu.JalaliDate{Year: 1405, Month: 5, Day: 21}
+	got, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "THR", "IFN", d))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// اصفهان must be "esfahan" for BUS (the spelling trap), and sort is required.
+	want := "https://780.ir/tourism/bus/tehran-esfahan?departureDate=1405-05-21&sort=earliestTime"
+	if got != want {
+		t.Errorf("bus URL =\n  %s\nwant\n  %s", got, want)
+	}
+}
+
+func TestTrainBusSpellingDiffers(t *testing.T) {
+	// اهواز is ahvaz (train) vs ahwaz (bus) — same IATA, different slug.
+	if s, _ := LookupTrainCity("AWZ"); s != "ahvaz" {
+		t.Errorf("train AWZ = %q, want ahvaz", s)
+	}
+	if s, _ := LookupBusCity("AWZ"); s != "ahwaz" {
+		t.Errorf("bus AWZ = %q, want ahwaz", s)
+	}
+}
+
+func TestTrainBusUnsupportedCity(t *testing.T) {
+	d := nlu.JalaliDate{Year: 1405, Month: 5, Day: 20}
+	// کیش (KIH) is an island — no train/bus.
+	if _, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "THR", "KIH", d)); !errors.Is(err, ErrTrainCityUnsupported) {
+		t.Errorf("train to Kish: want ErrTrainCityUnsupported, got %v", err)
+	}
+	if _, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "THR", "KIH", d)); !errors.Is(err, ErrBusCityUnsupported) {
+		t.Errorf("bus to Kish: want ErrBusCityUnsupported, got %v", err)
+	}
+	// اردبیل has bus but not train.
+	if _, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "THR", "ADU", d)); !errors.Is(err, ErrTrainCityUnsupported) {
+		t.Errorf("train to Ardabil: want ErrTrainCityUnsupported, got %v", err)
+	}
+	if _, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "THR", "ADU", d)); err != nil {
+		t.Errorf("bus to Ardabil: unexpected error %v", err)
+	}
+}

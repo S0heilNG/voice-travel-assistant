@@ -4,6 +4,13 @@ import { useSpeechRecognition, VOICE_UNAVAILABLE_CODES } from './useSpeechRecogn
 import { useSpeechSynthesis } from './useSpeechSynthesis.js'
 import { addJalaliDays, buildHotelSearchUrl, lookupHotelCity } from './hotelCities.js'
 import {
+  buildBusSearchUrl,
+  buildTrainSearchUrl,
+  lookupBusCity,
+  lookupTrainCity,
+} from './transitCities.js'
+import {
+  BusIcon,
   CalendarIcon,
   CheckIcon,
   ExternalLinkIcon,
@@ -13,6 +20,7 @@ import {
   SparkleIcon,
   SpeakerIcon,
   SpeakerOffIcon,
+  TrainIcon,
 } from './icons.jsx'
 import './App.css'
 
@@ -89,9 +97,12 @@ function mergeSlots(prev, result) {
 // Required fields per intent, computed over accumulated slots (mirrors the
 // backend's per-parse rule: origin is required only for flights; hotels need
 // a nights count).
+// Route intents (flight/train/bus) go origin→destination; hotel is a stay.
+const ROUTE_INTENTS = ['flight_search', 'train_search', 'bus_search']
+
 function computeMissing(slots) {
   const missing = []
-  if (slots.intent === 'flight_search' && !slots.origin) missing.push('origin')
+  if (ROUTE_INTENTS.includes(slots.intent) && !slots.origin) missing.push('origin')
   if (!slots.destination) missing.push('destination')
   if (!slots.date) missing.push('date')
   if (slots.intent === 'hotel_search' && !slots.nights) missing.push('nights')
@@ -104,6 +115,8 @@ function computeMissing(slots) {
 function buildSearchUrl(slots) {
   if (!slots) return null
   if (slots.intent === 'hotel_search') return buildHotelSearchUrl(slots)
+  if (slots.intent === 'train_search') return buildTrainSearchUrl(slots)
+  if (slots.intent === 'bus_search') return buildBusSearchUrl(slots)
   if (slots.intent !== 'flight_search') return null
   if (!slots.origin || !slots.destination || !slots.date) return null
   return (
@@ -116,10 +129,11 @@ function buildSearchUrl(slots) {
 function buildQuestion(missing, slots) {
   return slots.intent === 'hotel_search'
     ? buildHotelQuestion(missing, slots)
-    : buildFlightQuestion(missing, slots)
+    : buildRouteQuestion(missing, slots)
 }
 
-function buildFlightQuestion(missing, slots) {
+// Neutral wording (برید/حرکت) so it fits flight, train and bus alike.
+function buildRouteQuestion(missing, slots) {
   const dest = slots.destination?.name
   const has = (f) => missing.includes(f)
 
@@ -127,7 +141,7 @@ function buildFlightQuestion(missing, slots) {
     return 'خیلی خوب! از کجا، به کجا و چه تاریخی می‌خواید سفر کنید؟'
   }
   if (has('origin') && has('destination')) {
-    return 'از کدوم شهر و به کجا می‌خواید پرواز کنید؟'
+    return 'از کدوم شهر و به کجا می‌خواید برید؟'
   }
   if (has('destination') && has('date')) {
     return 'به کجا و چه تاریخی می‌خواید برید؟'
@@ -138,9 +152,7 @@ function buildFlightQuestion(missing, slots) {
       : 'از کدوم شهر و چه تاریخی می‌خواید سفر کنید؟'
   }
   if (has('origin')) {
-    return dest
-      ? `عالیه! از کدوم شهر می‌خواید به ${dest} پرواز کنید؟`
-      : 'از کدوم شهر پرواز می‌کنید؟'
+    return dest ? `عالیه! از کدوم شهر می‌خواید به ${dest} برید؟` : 'از کدوم شهر حرکت می‌کنید؟'
   }
   if (has('destination')) {
     return 'به کجا می‌خواید برید؟'
@@ -215,9 +227,19 @@ function formatJalali(date) {
 // intent=unknown and would dead-end on the error screen).
 const SUGGESTIONS = [
   { label: 'بلیط هواپیما', text: 'بلیط هواپیما می‌خوام' },
+  { label: 'بلیط قطار', text: 'بلیط قطار می‌خوام' },
+  { label: 'بلیط اتوبوس', text: 'بلیط اتوبوس می‌خوام' },
   { label: 'رزرو هتل', text: 'رزرو هتل' },
-  { label: 'سفر آخر هفته', text: 'بلیط برای آخر هفته' },
 ]
+
+// Per-service labels/icons for the confirm card, spoken summary, and the
+// keyword we prefix onto clarification answers so bare replies still parse.
+const SERVICES = {
+  flight_search: { title: 'جستجوی پرواز', speak: 'پرواز', keyword: 'بلیط', label: 'پرواز' },
+  train_search: { title: 'جستجوی قطار', speak: 'قطار', keyword: 'قطار', label: 'قطار' },
+  bus_search: { title: 'جستجوی اتوبوس', speak: 'اتوبوس', keyword: 'اتوبوس', label: 'اتوبوس' },
+  hotel_search: { title: 'جستجوی هتل', speak: 'هتل', keyword: 'هتل', label: 'هتل' },
+}
 
 const TITLE_BY_PHASE = {
   listening: 'در حال گوش دادن',
@@ -238,8 +260,31 @@ function buildConfirmSpeech(slots) {
     const nights = toPersianDigits(slots.nights)
     return `هتل در ${slots.destination.name}، ورود ${date}، ${nights} شب. درسته؟`
   }
+  const service = SERVICES[slots.intent]?.speak ?? 'سفر'
   const people = toPersianDigits(slots.adults ?? 1)
-  return `پرواز از ${slots.origin.name} به ${slots.destination.name} در تاریخ ${date} برای ${people} نفر. درسته؟`
+  return `${service} از ${slots.origin.name} به ${slots.destination.name} در تاریخ ${date} برای ${people} نفر. درسته؟`
+}
+
+// Returns the name of a city we understood but 780.ir doesn't cover on the
+// requested service, or null when everything is supported. For route services
+// either endpoint can be the culprit.
+function findUnsupportedCity(slots) {
+  if (!slots) return null
+  const { intent, origin, destination } = slots
+  const check = { hotel_search: null, train_search: lookupTrainCity, bus_search: lookupBusCity }[intent]
+  if (intent === 'hotel_search') {
+    return destination && !lookupHotelCity(destination.iata) ? destination.name : null
+  }
+  if (!check) return null // flight: every NLU city is supported
+  if (origin && !check(origin.iata)) return origin.name
+  if (destination && !check(destination.iata)) return destination.name
+  return null
+}
+
+function ServiceIcon({ intent, className }) {
+  if (intent === 'train_search') return <TrainIcon className={className} />
+  if (intent === 'bus_search') return <BusIcon className={className} />
+  return <SparkleIcon className={className} />
 }
 
 function TtsToggle({ enabled, onToggle }) {
@@ -315,9 +360,8 @@ function App() {
     // replies ("فردا", "پنجشنبه") still trigger intent + date/city extraction
     // in the stateless, single-sentence backend parser.
     const inConversation = accumulatedSlots !== null
-    const textToParse = inConversation
-      ? `${accumulatedSlots.intent === 'hotel_search' ? 'هتل' : 'بلیط'} ${trimmed}`
-      : trimmed
+    const keyword = SERVICES[accumulatedSlots?.intent]?.keyword ?? 'بلیط'
+    const textToParse = inConversation ? `${keyword} ${trimmed}` : trimmed
 
     try {
       // Run the request and the minimum-spinner delay together so the floor
@@ -468,9 +512,10 @@ function App() {
   const showTextInput = !isSupported || useTextMode
   const searchUrl = buildSearchUrl(accumulatedSlots)
   const isHotel = accumulatedSlots?.intent === 'hotel_search'
-  // A city we understood, but one 780.ir has no hotel coverage for.
-  const hotelCityUnsupported =
-    isHotel && !!accumulatedSlots?.destination && !lookupHotelCity(accumulatedSlots.destination.iata)
+  const service = SERVICES[accumulatedSlots?.intent]
+  // A city we understood, but one 780.ir doesn't cover on this service (its
+  // name, for the friendly message). null when everything is supported.
+  const unsupportedCityName = findUnsupportedCity(accumulatedSlots)
   const title = TITLE_BY_PHASE[state.phase]
   const step = STEP_BY_PHASE[state.phase]
 
@@ -620,8 +665,8 @@ function App() {
         <>
           <div className="summary-card">
             <div className="summary-head">
-              <SparkleIcon className="icon" />
-              <span>{isHotel ? 'جستجوی هتل' : 'جستجوی پرواز'}</span>
+              <ServiceIcon intent={accumulatedSlots.intent} className="icon" />
+              <span>{service?.title ?? 'جستجو'}</span>
             </div>
             <div className="summary-row">
               <span className="summary-label">
@@ -688,8 +733,8 @@ function App() {
           ) : (
             <div className="notice">
               <SparkleIcon className="icon" />
-              {hotelCityUnsupported
-                ? `فعلاً برای هتلِ ${accumulatedSlots.destination.name} پشتیبانی نداریم، ولی به‌زودی اضافه می‌شود.`
+              {unsupportedCityName
+                ? `فعلاً برای ${service?.label ?? 'این سرویس'}ِ ${unsupportedCityName} پشتیبانی نداریم، ولی به‌زودی اضافه می‌شود.`
                 : 'فعلاً امکان جستجو برای این درخواست وجود ندارد.'}
             </div>
           )}

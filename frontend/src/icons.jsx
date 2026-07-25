@@ -104,6 +104,37 @@ export function SpeakerOffIcon({ className }) {
   )
 }
 
+// Line icons in the same style as the rest (1.8 stroke, currentColor).
+export function TrainIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4.5" y="2.5" width="11" height="12" rx="3" />
+        <line x1="4.5" y1="8.5" x2="15.5" y2="8.5" />
+        <circle cx="7.5" cy="11.4" r="0.6" fill="currentColor" stroke="none" />
+        <circle cx="12.5" cy="11.4" r="0.6" fill="currentColor" stroke="none" />
+        <line x1="6.5" y1="14.5" x2="4.5" y2="17.5" />
+        <line x1="13.5" y1="14.5" x2="15.5" y2="17.5" />
+      </g>
+    </svg>
+  )
+}
+
+export function BusIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3.5" width="14" height="10" rx="2.5" />
+        <line x1="3" y1="9" x2="17" y2="9" />
+        <circle cx="6.5" cy="15.5" r="1.5" />
+        <circle cx="13.5" cy="15.5" r="1.5" />
+        <line x1="3" y1="14.5" x2="3" y2="11" />
+        <line x1="17" y1="14.5" x2="17" y2="11" />
+      </g>
+    </svg>
+  )
+}
+
 export function ExternalLinkIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 16 18" fill="none" aria-hidden="true">

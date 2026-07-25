@@ -13,8 +13,17 @@ type Intent string
 const (
 	IntentFlightSearch Intent = "flight_search"
 	IntentHotelSearch  Intent = "hotel_search"
+	IntentTrainSearch  Intent = "train_search"
+	IntentBusSearch    Intent = "bus_search"
 	IntentUnknown      Intent = "unknown"
 )
+
+// isRouteIntent reports whether the intent describes an origin→destination
+// trip (flight, train, bus) as opposed to a stay (hotel). Route intents all
+// need an origin, a destination, and a single date.
+func isRouteIntent(i Intent) bool {
+	return i == IntentFlightSearch || i == IntentTrainSearch || i == IntentBusSearch
+}
 
 // ParseResult is the structured outcome of parsing one utterance.
 type ParseResult struct {
@@ -53,7 +62,7 @@ func parse(text string, now time.Time) ParseResult {
 	result.Origin = origin
 	result.Destination = destination
 
-	if intent == IntentFlightSearch && origin == nil {
+	if isRouteIntent(intent) && origin == nil {
 		result.Missing = append(result.Missing, "origin")
 	}
 	if destination == nil {

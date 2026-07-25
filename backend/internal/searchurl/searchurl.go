@@ -18,9 +18,13 @@ import (
 	"github.com/soheilnegahi/voice-travel-assistant/backend/internal/nlu"
 )
 
-// ErrHotelCityUnsupported means we understood the city but 780.ir has no
-// hotel coverage for it — a normal outcome to show the user, not a bug.
-var ErrHotelCityUnsupported = fmt.Errorf("no 780.ir hotel support for this city")
+// These mean we understood the city but 780.ir has no coverage for it on that
+// service — a normal outcome to show the user, not a bug.
+var (
+	ErrHotelCityUnsupported = fmt.Errorf("no 780.ir hotel support for this city")
+	ErrTrainCityUnsupported = fmt.Errorf("no 780.ir train support for this city")
+	ErrBusCityUnsupported   = fmt.Errorf("no 780.ir bus support for this city")
+)
 
 // BuildFlightSearchURL builds a 780.ir flight search results URL from a
 // parse result. Callers should check that result.Missing is empty and
@@ -37,6 +41,49 @@ func BuildFlightSearchURL(result nlu.ParseResult) (string, error) {
 	return fmt.Sprintf(
 		"https://780.ir/tourism/flights/%s-%s?adult=%d&child=0&infant=0&departureDate=%s&sort=lowPrice",
 		result.Origin.IATA, result.Destination.IATA, result.Adults, result.Date.String(),
+	), nil
+}
+
+// BuildTrainSearchURL builds a 780.ir train results URL. The path uses the
+// train name-slugs (isfahan, ahvaz, ...); 780 fills in gender/wantCompartment
+// defaults itself, so we only send the date and passenger counts. Returns
+// ErrTrainCityUnsupported when either city has no train slug.
+func BuildTrainSearchURL(result nlu.ParseResult) (string, error) {
+	if result.Intent != nlu.IntentTrainSearch {
+		return "", fmt.Errorf("cannot build train search URL: intent is %q, not %q", result.Intent, nlu.IntentTrainSearch)
+	}
+	if result.Origin == nil || result.Destination == nil || result.Date == nil {
+		return "", fmt.Errorf("cannot build train search URL: origin, destination, and date must all be resolved")
+	}
+	o, ok1 := LookupTrainCity(result.Origin.IATA)
+	d, ok2 := LookupTrainCity(result.Destination.IATA)
+	if !ok1 || !ok2 {
+		return "", ErrTrainCityUnsupported
+	}
+	return fmt.Sprintf(
+		"https://780.ir/tourism/train/%s-%s?departureDate=%s&adult=%d&child=0&infant=0",
+		o, d, result.Date.String(), result.Adults,
+	), nil
+}
+
+// BuildBusSearchURL builds a 780.ir bus results URL. Bus needs the sort param
+// (dropping it 404s the client route). Path uses the bus name-slugs (esfahan,
+// ahwaz, ...). Returns ErrBusCityUnsupported when either city has no bus slug.
+func BuildBusSearchURL(result nlu.ParseResult) (string, error) {
+	if result.Intent != nlu.IntentBusSearch {
+		return "", fmt.Errorf("cannot build bus search URL: intent is %q, not %q", result.Intent, nlu.IntentBusSearch)
+	}
+	if result.Origin == nil || result.Destination == nil || result.Date == nil {
+		return "", fmt.Errorf("cannot build bus search URL: origin, destination, and date must all be resolved")
+	}
+	o, ok1 := LookupBusCity(result.Origin.IATA)
+	d, ok2 := LookupBusCity(result.Destination.IATA)
+	if !ok1 || !ok2 {
+		return "", ErrBusCityUnsupported
+	}
+	return fmt.Sprintf(
+		"https://780.ir/tourism/bus/%s-%s?departureDate=%s&sort=earliestTime",
+		o, d, result.Date.String(),
 	), nil
 }
 
