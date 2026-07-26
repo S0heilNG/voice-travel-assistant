@@ -27,7 +27,14 @@ func TestDetectIntentPriority(t *testing.T) {
 		// Short-word safety: "اینترنت" contains "ترن", "اتوبوس" contains "بوس"
 		// as substrings, but as whole-word keywords they must not misfire.
 		{"internet is not train", "اینترنت خونه‌ام قطع شده", IntentUnknown},
-		{"unrelated -> unknown", "سلام حالت چطوره", IntentUnknown},
+		// Help / greeting — must be lowest priority.
+		{"greeting -> help", "سلام حالت چطوره", IntentHelp},
+		{"bare greeting -> help", "سلام", IntentHelp},
+		{"capability question -> help", "چه کاری می‌تونی بکنی", IntentHelp},
+		{"help keyword", "راهنما", IntentHelp},
+		{"greeting + search stays flight", "سلام بلیط تهران به مشهد فردا", IntentFlightSearch},
+		{"health is not a greeting", "سلامتی برات آرزو می‌کنم", IntentUnknown},
+		{"help word loses to ticket+city", "کمکم کن بلیط تهران مشهد بخرم", IntentFlightSearch},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

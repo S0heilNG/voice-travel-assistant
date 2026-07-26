@@ -15,7 +15,11 @@ const (
 	IntentHotelSearch  Intent = "hotel_search"
 	IntentTrainSearch  Intent = "train_search"
 	IntentBusSearch    Intent = "bus_search"
-	IntentUnknown      Intent = "unknown"
+	// IntentHelp covers "what can you do?" and bare greetings — the user isn't
+	// searching yet, so instead of dead-ending on the error screen we show a
+	// friendly capabilities message. It carries no slots.
+	IntentHelp    Intent = "help"
+	IntentUnknown Intent = "unknown"
 )
 
 // isRouteIntent reports whether the intent describes an origin→destination
@@ -54,7 +58,8 @@ func parse(text string, now time.Time) ParseResult {
 		RawText: text,
 	}
 
-	if intent == IntentUnknown {
+	// Help and unknown carry no entities, so there's nothing more to extract.
+	if intent == IntentUnknown || intent == IntentHelp {
 		return result
 	}
 

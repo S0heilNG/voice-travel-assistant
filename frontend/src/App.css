@@ -89,6 +89,15 @@
   text-align: right;
 }
 
+.help-text {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  line-height: 1.9;
+  color: var(--c-text);
+  margin: var(--sp-2) 0 var(--sp-4);
+  text-align: right;
+}
+
 .suggestions {
   display: flex;
   flex-wrap: wrap;

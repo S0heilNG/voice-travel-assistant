@@ -57,6 +57,8 @@ function reducer(state, action) {
       return { ...state, phase: 'redirecting', error: null }
     case 'ERROR':
       return { ...state, phase: 'error', error: action.error }
+    case 'HELP':
+      return { ...initialState, phase: 'help' }
     case 'RESET':
       return initialState
     case 'RESTART':
@@ -232,6 +234,10 @@ const SUGGESTIONS = [
   { label: 'رزرو هتل', text: 'رزرو هتل' },
 ]
 
+// Shown (and spoken) on the help screen — a greeting or "what can you do?".
+const HELP_TEXT =
+  'من دستیار سفر هفت‌هشتادم. می‌تونم کمکت کنم بلیط پرواز داخلی، قطار، اتوبوس یا هتل پیدا کنی — فقط کافیه بگی کجا و کِی. مثلاً بگو: بلیط تهران به مشهد برای فردا.'
+
 // Per-service labels/icons for the confirm card, spoken summary, and the
 // keyword we prefix onto clarification answers so bare replies still parse.
 const SERVICES = {
@@ -371,11 +377,19 @@ function App() {
         new Promise((resolve) => setTimeout(resolve, MIN_THINKING_MS)),
       ])
 
+      // Greeting or "what can you do?" → friendly help screen, not a search.
+      if (data.intent === 'help') {
+        setAccumulatedSlots(null)
+        dispatch({ type: 'HELP' })
+        return
+      }
+
       // First utterance we can't understand at all → don't enter the loop.
       if (!inConversation && data.intent === 'unknown') {
         dispatch({
           type: 'ERROR',
-          error: 'متوجه منظورتون نشدم. لطفاً کامل‌تر بگید، مثلاً: «بلیط تهران به مشهد برای فردا».',
+          error:
+            'متوجه منظورتون نشدم. من می‌تونم بلیط پرواز، قطار، اتوبوس یا هتل پیدا کنم — مثلاً بگید: «بلیط تهران به مشهد برای فردا».',
         })
         return
       }
@@ -453,6 +467,8 @@ function App() {
       speak(state.error)
     } else if (state.phase === 'idle' && state.notice) {
       speak(state.notice)
+    } else if (state.phase === 'help') {
+      speak(HELP_TEXT)
     }
   }, [state.phase, state.question, state.error, state.notice, ttsEnabled, hasPersianVoice]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -571,8 +587,8 @@ function App() {
 
   return (
     <div className="app">
-      <div className={`header${state.phase === 'idle' ? ' header-idle' : ''}`}>
-        {state.phase === 'idle' ? (
+      <div className={`header${state.phase === 'idle' || state.phase === 'help' ? ' header-idle' : ''}`}>
+        {state.phase === 'idle' || state.phase === 'help' ? (
           <span className="brand">دستیار سفر هفت‌هشتاد</span>
         ) : (
           <span className="header-title">{title}</span>
@@ -605,6 +621,20 @@ function App() {
               {state.notice}
             </div>
           )}
+          <div className="mic-stage">{renderInputArea()}</div>
+        </>
+      )}
+
+      {state.phase === 'help' && (
+        <>
+          <p className="help-text">{HELP_TEXT}</p>
+          <div className="suggestions">
+            {SUGGESTIONS.map((s) => (
+              <button key={s.label} className="suggestion" onClick={() => submit(s.text)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
           <div className="mic-stage">{renderInputArea()}</div>
         </>
       )}

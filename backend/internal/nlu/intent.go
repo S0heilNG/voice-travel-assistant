@@ -56,7 +56,35 @@ func detectIntent(text string) Intent {
 	if firstKeywordIndex(text, ticketKeywords) != -1 || len(findCitiesInText(text)) > 0 {
 		return IntentFlightSearch
 	}
+
+	// Lowest priority, only once we're sure there's no search here: a bare
+	// greeting or a "what can you do?" question → show the help screen instead
+	// of an error. Checked last so "سلام بلیط تهران مشهد" stays a flight search.
+	if isHelpQuery(text) {
+		return IntentHelp
+	}
 	return IntentUnknown
+}
+
+// greetingKeywords are matched as whole words: "سلام" is a substring of
+// "سلامت"/"سلامتی" (health), which are not greetings.
+var greetingKeywords = []string{"سلام", "درود", "سلم"}
+
+// capabilityKeywords catch "what can you do?" / "help" phrasings. Matched as
+// substrings (they're distinctive); they only reach this point when no service
+// keyword or city is present, so "کمکم کن بلیط بخرم" stays a flight search.
+var capabilityKeywords = []string{
+	"چیکار", "چی کار", "چه کار", "چیکارا", "چه کمکی", "کمکم کن",
+	"چی بلدی", "چیا بلدی", "بلدی", "راهنما", "کمک", "قابلیت", "کارت چیه",
+	"می تونی بکنی", "میتونی بکنی", "کاری می تونی", "کاری میتونی",
+}
+
+// isHelpQuery reports whether the text is a greeting or a capability question.
+func isHelpQuery(text string) bool {
+	if firstWholeWordIndex(text, greetingKeywords) != -1 {
+		return true
+	}
+	return firstKeywordIndex(text, capabilityKeywords) != -1
 }
 
 func firstKeywordIndex(text string, keywords []string) int {
