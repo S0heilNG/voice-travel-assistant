@@ -3,17 +3,17 @@
 // the frontend needs its own copy because it accumulates conversation context
 // locally and redirects without a round trip.
 
-// Only these 8 of the 20 cities the NLU knows have 780.ir hotel coverage.
-// Keyed by IATA so this stays aligned with the backend table.
+// Only these 8 cities have 780.ir hotel coverage. Keyed by the canonical
+// Persian city name (slots.destination.name), mirroring the backend table.
 export const HOTEL_CITIES = {
-  MHD: { nameEng: 'Mashhad', id: 'ed48aafc-2d55-4a58-848c-4f0f7f0fd587' },
-  KIH: { nameEng: 'Kish', id: '33efa9ce-ee1c-4e70-a612-abb2d5182c03' },
-  IFN: { nameEng: 'Isfahan', id: '84e89d24-f31f-40f2-aac2-bd03a9dc8c3c' },
-  SYZ: { nameEng: 'Shiraz', id: '15c8c243-d23f-4a3d-8338-075fc5f7cfbb' },
-  THR: { nameEng: 'Tehran', id: 'eb5f0fdb-c170-49a4-bab0-3e6ca0b12e03' },
-  TBZ: { nameEng: 'Tabriz', id: '7d4d062d-a035-4278-b6f6-3e6b2c2ff925' },
-  AZD: { nameEng: 'Yazd', id: '556b7d98-ca7f-44d8-9a1f-ed592d539338' },
-  GSM: { nameEng: 'Qeshm', id: '299da048-9776-4ce9-b764-64a3de1497c9' },
+  مشهد: { nameEng: 'Mashhad', id: 'ed48aafc-2d55-4a58-848c-4f0f7f0fd587' },
+  کیش: { nameEng: 'Kish', id: '33efa9ce-ee1c-4e70-a612-abb2d5182c03' },
+  اصفهان: { nameEng: 'Isfahan', id: '84e89d24-f31f-40f2-aac2-bd03a9dc8c3c' },
+  شیراز: { nameEng: 'Shiraz', id: '15c8c243-d23f-4a3d-8338-075fc5f7cfbb' },
+  تهران: { nameEng: 'Tehran', id: 'eb5f0fdb-c170-49a4-bab0-3e6ca0b12e03' },
+  تبریز: { nameEng: 'Tabriz', id: '7d4d062d-a035-4278-b6f6-3e6b2c2ff925' },
+  یزد: { nameEng: 'Yazd', id: '556b7d98-ca7f-44d8-9a1f-ed592d539338' },
+  قشم: { nameEng: 'Qeshm', id: '299da048-9776-4ce9-b764-64a3de1497c9' },
 }
 
 // --- Jalali date arithmetic -------------------------------------------------
@@ -134,9 +134,9 @@ export function addJalaliDays(date, n) {
   return `${y}-${pad(m)}-${pad(d)}`
 }
 
-/** 780.ir hotel identity for an IATA code, or null when unsupported. */
-export function lookupHotelCity(iata) {
-  return HOTEL_CITIES[iata] || null
+/** 780.ir hotel identity for a canonical Persian city name, or null. */
+export function lookupHotelCity(name) {
+  return HOTEL_CITIES[name] || null
 }
 
 /**
@@ -157,7 +157,7 @@ export function lookupHotelCity(iata) {
  */
 export function buildHotelSearchUrl(slots) {
   if (!slots || !slots.destination || !slots.date) return null
-  const hotelCity = lookupHotelCity(slots.destination.iata)
+  const hotelCity = lookupHotelCity(slots.destination.name)
   if (!hotelCity) return null
   return `https://780.ir/tourism/hotel/${hotelCity.nameEng.toLowerCase()}`
 }

@@ -4,49 +4,61 @@
 //
 // Two separate tables because the English spelling differs per service:
 // اصفهان = isfahan (train) vs esfahan (bus); اهواز = ahvaz (train) vs ahwaz
-// (bus). Only authoritatively-confirmed slugs are here; unconfirmed cities are
-// treated as unsupported (a broken redirect is worse than none). Keyed by IATA
-// to stay aligned with the NLU city table. Islands کیش/قشم have no rail/coach.
+// (bus). Keyed by the canonical Persian city name (slots.*.name), not IATA, so
+// airport-less rail/coach cities work too. Only confirmed slugs are here;
+// anything else is treated as unsupported. Islands کیش/قشم have no rail/coach.
 
 export const TRAIN_CITIES = {
-  THR: 'tehran',
-  MHD: 'mashhad',
-  IFN: 'isfahan', // bus uses "esfahan"
-  SYZ: 'shiraz',
-  TBZ: 'tabriz',
-  RAS: 'rasht',
-  AZD: 'yazd',
-  AWZ: 'ahvaz', // bus uses "ahwaz"
+  تهران: 'tehran',
+  مشهد: 'mashhad',
+  اصفهان: 'isfahan', // bus uses "esfahan"
+  شیراز: 'shiraz',
+  تبریز: 'tabriz',
+  رشت: 'rasht',
+  یزد: 'yazd',
+  اهواز: 'ahvaz', // bus uses "ahwaz"
+  جلفا: 'jolfa',
+  زنجان: 'zanjan',
+  سمنان: 'semnan',
+  قزوین: 'qazvin',
+  کرج: 'karaj',
 }
 
 export const BUS_CITIES = {
-  THR: 'tehran',
-  MHD: 'mashhad',
-  IFN: 'esfahan', // train uses "isfahan"
-  SYZ: 'shiraz',
-  TBZ: 'tabriz',
-  RAS: 'rasht',
-  AZD: 'yazd',
-  AWZ: 'ahwaz', // train uses "ahvaz"
-  ADU: 'ardabil',
-  BUZ: 'bushehr',
-  OMH: 'orumieh',
+  تهران: 'tehran',
+  مشهد: 'mashhad',
+  اصفهان: 'esfahan', // train uses "isfahan"
+  شیراز: 'shiraz',
+  تبریز: 'tabriz',
+  رشت: 'rasht',
+  یزد: 'yazd',
+  اهواز: 'ahwaz', // train uses "ahvaz"
+  اردبیل: 'ardabil',
+  بوشهر: 'bushehr',
+  ارومیه: 'orumieh',
+  ساری: 'sari',
+  ایلام: 'ilam',
+  جهرم: 'jahrom',
+  رامسر: 'ramsar',
+  همدان: 'hamedan',
+  کاشان: 'kashan',
+  کرج: 'karaj',
 }
 
-export function lookupTrainCity(iata) {
-  return TRAIN_CITIES[iata] || null
+export function lookupTrainCity(name) {
+  return TRAIN_CITIES[name] || null
 }
 
-export function lookupBusCity(iata) {
-  return BUS_CITIES[iata] || null
+export function lookupBusCity(name) {
+  return BUS_CITIES[name] || null
 }
 
 // 780 fills gender/wantCompartment defaults itself, so we only send date +
 // passengers. Returns null if incomplete or either city has no train slug.
 export function buildTrainSearchUrl(slots) {
   if (!slots || !slots.origin || !slots.destination || !slots.date) return null
-  const o = lookupTrainCity(slots.origin.iata)
-  const d = lookupTrainCity(slots.destination.iata)
+  const o = lookupTrainCity(slots.origin.name)
+  const d = lookupTrainCity(slots.destination.name)
   if (!o || !d) return null
   return (
     `https://780.ir/tourism/train/${o}-${d}` +
@@ -57,8 +69,8 @@ export function buildTrainSearchUrl(slots) {
 // Bus needs the sort param (dropping it 404s the client route).
 export function buildBusSearchUrl(slots) {
   if (!slots || !slots.origin || !slots.destination || !slots.date) return null
-  const o = lookupBusCity(slots.origin.iata)
-  const d = lookupBusCity(slots.destination.iata)
+  const o = lookupBusCity(slots.origin.name)
+  const d = lookupBusCity(slots.destination.name)
   if (!o || !d) return null
   return `https://780.ir/tourism/bus/${o}-${d}?departureDate=${slots.date}&sort=earliestTime`
 }

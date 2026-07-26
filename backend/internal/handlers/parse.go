@@ -52,8 +52,12 @@ func parseText(c *fiber.Ctx) error {
 	if len(result.Missing) == 0 {
 		switch result.Intent {
 		case nlu.IntentFlightSearch:
-			if u, err := searchurl.BuildFlightSearchURL(result); err == nil {
+			u, err := searchurl.BuildFlightSearchURL(result)
+			switch {
+			case err == nil:
 				searchURL = u
+			case errors.Is(err, searchurl.ErrFlightCityUnsupported):
+				citySupported = false
 			}
 		case nlu.IntentHotelSearch:
 			// Missing is empty here, so Nights is set (>= 1).

@@ -121,6 +121,8 @@ function buildSearchUrl(slots) {
   if (slots.intent === 'bus_search') return buildBusSearchUrl(slots)
   if (slots.intent !== 'flight_search') return null
   if (!slots.origin || !slots.destination || !slots.date) return null
+  // A city with no confirmed airport has iata "" — it isn't flight-able.
+  if (!slots.origin.iata || !slots.destination.iata) return null
   return (
     `https://780.ir/tourism/flights/${slots.origin.iata}-${slots.destination.iata}` +
     `?adult=${slots.adults ?? 1}&child=0&infant=0&departureDate=${slots.date}&sort=lowPrice`
@@ -277,13 +279,22 @@ function buildConfirmSpeech(slots) {
 function findUnsupportedCity(slots) {
   if (!slots) return null
   const { intent, origin, destination } = slots
-  const check = { hotel_search: null, train_search: lookupTrainCity, bus_search: lookupBusCity }[intent]
   if (intent === 'hotel_search') {
-    return destination && !lookupHotelCity(destination.iata) ? destination.name : null
+    return destination && !lookupHotelCity(destination.name) ? destination.name : null
   }
-  if (!check) return null // flight: every NLU city is supported
-  if (origin && !check(origin.iata)) return origin.name
-  if (destination && !check(destination.iata)) return destination.name
+  // Route services: a city is supported if it has this service's slug (train/
+  // bus) or a confirmed airport (flight — cities with no airport have iata "").
+  const supported =
+    intent === 'train_search'
+      ? (c) => !!lookupTrainCity(c.name)
+      : intent === 'bus_search'
+        ? (c) => !!lookupBusCity(c.name)
+        : intent === 'flight_search'
+          ? (c) => !!c.iata
+          : null
+  if (!supported) return null
+  if (origin && !supported(origin)) return origin.name
+  if (destination && !supported(destination)) return destination.name
   return null
 }
 

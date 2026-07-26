@@ -43,17 +43,17 @@ func TestAddJalaliDays(t *testing.T) {
 	}
 }
 
-func hotelResult(iata, name string, d nlu.JalaliDate) nlu.ParseResult {
+func hotelResult(name string, d nlu.JalaliDate) nlu.ParseResult {
 	return nlu.ParseResult{
 		Intent:      nlu.IntentHotelSearch,
-		Destination: &nlu.City{Name: name, IATA: iata},
+		Destination: &nlu.City{Name: name},
 		Date:        &d,
 		Adults:      1,
 	}
 }
 
 func TestBuildHotelSearchURL(t *testing.T) {
-	got, err := BuildHotelSearchURL(hotelResult("MHD", "مشهد", nlu.JalaliDate{Year: 1405, Month: 4, Day: 31}), 1)
+	got, err := BuildHotelSearchURL(hotelResult("مشهد", nlu.JalaliDate{Year: 1405, Month: 4, Day: 31}), 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestBuildHotelSearchURL(t *testing.T) {
 
 func TestBuildHotelSearchURLUnsupportedCity(t *testing.T) {
 	// رشت is a known flight city but has no 780.ir hotel UUID.
-	_, err := BuildHotelSearchURL(hotelResult("RAS", "رشت", nlu.JalaliDate{Year: 1405, Month: 4, Day: 31}), 1)
+	_, err := BuildHotelSearchURL(hotelResult("رشت", nlu.JalaliDate{Year: 1405, Month: 4, Day: 31}), 1)
 	if !errors.Is(err, ErrHotelCityUnsupported) {
 		t.Fatalf("want ErrHotelCityUnsupported, got %v", err)
 	}
@@ -111,33 +111,37 @@ func TestBuildHotelSearchURLRejectsIncomplete(t *testing.T) {
 	}
 }
 
-// Every hotel city must exist in the nlu table, or the lookup by IATA can
-// never fire.
-func TestHotelCitiesResolveInNLU(t *testing.T) {
-	names := map[string]string{
-		"MHD": "مشهد", "KIH": "کیش", "IFN": "اصفهان", "SYZ": "شیراز",
-		"THR": "تهران", "TBZ": "تبریز", "AZD": "یزد", "GSM": "قشم",
+// Every service-table key must be a real canonical nlu city name, or the
+// lookup can never fire. Catches typos and normalization drift.
+func TestServiceTableKeysResolveInNLU(t *testing.T) {
+	for tableName, table := range map[string]map[string]string{
+		"train": trainCities,
+		"bus":   busCities,
+	} {
+		for name := range table {
+			city := nlu.LookupCity(name)
+			if city == nil {
+				t.Errorf("%s table key %q is not a known nlu city", tableName, name)
+				continue
+			}
+			if city.Name != name {
+				t.Errorf("%s table key %q is not the canonical name (nlu canonical is %q)", tableName, name, city.Name)
+			}
+		}
 	}
-	for iata, name := range names {
+	for name := range hotelCities {
 		city := nlu.LookupCity(name)
-		if city == nil {
-			t.Errorf("nlu doesn't know %q", name)
-			continue
-		}
-		if city.IATA != iata {
-			t.Errorf("%q has IATA %q in nlu, but the hotel table is keyed %q", name, city.IATA, iata)
-		}
-		if _, ok := LookupHotelCity(iata); !ok {
-			t.Errorf("hotel table missing %q", iata)
+		if city == nil || city.Name != name {
+			t.Errorf("hotel table key %q is not a canonical nlu city name", name)
 		}
 	}
 }
 
-func routeResult(intent nlu.Intent, oIATA, dIATA string, d nlu.JalaliDate) nlu.ParseResult {
+func routeResult(intent nlu.Intent, origin, dest string, d nlu.JalaliDate) nlu.ParseResult {
 	return nlu.ParseResult{
 		Intent:      intent,
-		Origin:      &nlu.City{Name: oIATA, IATA: oIATA},
-		Destination: &nlu.City{Name: dIATA, IATA: dIATA},
+		Origin:      &nlu.City{Name: origin},
+		Destination: &nlu.City{Name: dest},
 		Date:        &d,
 		Adults:      1,
 	}
@@ -145,7 +149,7 @@ func routeResult(intent nlu.Intent, oIATA, dIATA string, d nlu.JalaliDate) nlu.P
 
 func TestBuildTrainSearchURL(t *testing.T) {
 	d := nlu.JalaliDate{Year: 1405, Month: 5, Day: 20}
-	got, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "THR", "IFN", d))
+	got, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "تهران", "اصفهان", d))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -158,7 +162,7 @@ func TestBuildTrainSearchURL(t *testing.T) {
 
 func TestBuildBusSearchURL(t *testing.T) {
 	d := nlu.JalaliDate{Year: 1405, Month: 5, Day: 21}
-	got, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "THR", "IFN", d))
+	got, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "تهران", "اصفهان", d))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -169,30 +173,42 @@ func TestBuildBusSearchURL(t *testing.T) {
 	}
 }
 
-func TestTrainBusSpellingDiffers(t *testing.T) {
-	// اهواز is ahvaz (train) vs ahwaz (bus) — same IATA, different slug.
-	if s, _ := LookupTrainCity("AWZ"); s != "ahvaz" {
-		t.Errorf("train AWZ = %q, want ahvaz", s)
+func TestBusIlam(t *testing.T) {
+	// The bug that started all this: تهران→ایلام by bus must work.
+	d := nlu.JalaliDate{Year: 1405, Month: 5, Day: 21}
+	got, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "تهران", "ایلام", d))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if s, _ := LookupBusCity("AWZ"); s != "ahwaz" {
-		t.Errorf("bus AWZ = %q, want ahwaz", s)
+	if got != "https://780.ir/tourism/bus/tehran-ilam?departureDate=1405-05-21&sort=earliestTime" {
+		t.Errorf("bus to Ilam URL = %s", got)
+	}
+}
+
+func TestTrainBusSpellingDiffers(t *testing.T) {
+	// اهواز is ahvaz (train) vs ahwaz (bus) — different slug per service.
+	if s, _ := LookupTrainCity("اهواز"); s != "ahvaz" {
+		t.Errorf("train اهواز = %q, want ahvaz", s)
+	}
+	if s, _ := LookupBusCity("اهواز"); s != "ahwaz" {
+		t.Errorf("bus اهواز = %q, want ahwaz", s)
 	}
 }
 
 func TestTrainBusUnsupportedCity(t *testing.T) {
 	d := nlu.JalaliDate{Year: 1405, Month: 5, Day: 20}
-	// کیش (KIH) is an island — no train/bus.
-	if _, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "THR", "KIH", d)); !errors.Is(err, ErrTrainCityUnsupported) {
+	// کیش is an island — no train/bus.
+	if _, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "تهران", "کیش", d)); !errors.Is(err, ErrTrainCityUnsupported) {
 		t.Errorf("train to Kish: want ErrTrainCityUnsupported, got %v", err)
 	}
-	if _, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "THR", "KIH", d)); !errors.Is(err, ErrBusCityUnsupported) {
+	if _, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "تهران", "کیش", d)); !errors.Is(err, ErrBusCityUnsupported) {
 		t.Errorf("bus to Kish: want ErrBusCityUnsupported, got %v", err)
 	}
 	// اردبیل has bus but not train.
-	if _, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "THR", "ADU", d)); !errors.Is(err, ErrTrainCityUnsupported) {
+	if _, err := BuildTrainSearchURL(routeResult(nlu.IntentTrainSearch, "تهران", "اردبیل", d)); !errors.Is(err, ErrTrainCityUnsupported) {
 		t.Errorf("train to Ardabil: want ErrTrainCityUnsupported, got %v", err)
 	}
-	if _, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "THR", "ADU", d)); err != nil {
+	if _, err := BuildBusSearchURL(routeResult(nlu.IntentBusSearch, "تهران", "اردبیل", d)); err != nil {
 		t.Errorf("bus to Ardabil: unexpected error %v", err)
 	}
 }

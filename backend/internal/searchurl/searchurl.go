@@ -21,9 +21,10 @@ import (
 // These mean we understood the city but 780.ir has no coverage for it on that
 // service — a normal outcome to show the user, not a bug.
 var (
-	ErrHotelCityUnsupported = fmt.Errorf("no 780.ir hotel support for this city")
-	ErrTrainCityUnsupported = fmt.Errorf("no 780.ir train support for this city")
-	ErrBusCityUnsupported   = fmt.Errorf("no 780.ir bus support for this city")
+	ErrHotelCityUnsupported  = fmt.Errorf("no 780.ir hotel support for this city")
+	ErrTrainCityUnsupported  = fmt.Errorf("no 780.ir train support for this city")
+	ErrBusCityUnsupported    = fmt.Errorf("no 780.ir bus support for this city")
+	ErrFlightCityUnsupported = fmt.Errorf("no 780.ir flight support for this city")
 )
 
 // BuildFlightSearchURL builds a 780.ir flight search results URL from a
@@ -36,6 +37,10 @@ func BuildFlightSearchURL(result nlu.ParseResult) (string, error) {
 	}
 	if result.Origin == nil || result.Destination == nil || result.Date == nil {
 		return "", fmt.Errorf("cannot build flight search URL: origin, destination, and date must all be resolved")
+	}
+	// A city with no confirmed airport has IATA "" — it isn't flight-able.
+	if result.Origin.IATA == "" || result.Destination.IATA == "" {
+		return "", ErrFlightCityUnsupported
 	}
 
 	return fmt.Sprintf(
@@ -55,8 +60,8 @@ func BuildTrainSearchURL(result nlu.ParseResult) (string, error) {
 	if result.Origin == nil || result.Destination == nil || result.Date == nil {
 		return "", fmt.Errorf("cannot build train search URL: origin, destination, and date must all be resolved")
 	}
-	o, ok1 := LookupTrainCity(result.Origin.IATA)
-	d, ok2 := LookupTrainCity(result.Destination.IATA)
+	o, ok1 := LookupTrainCity(result.Origin.Name)
+	d, ok2 := LookupTrainCity(result.Destination.Name)
 	if !ok1 || !ok2 {
 		return "", ErrTrainCityUnsupported
 	}
@@ -76,8 +81,8 @@ func BuildBusSearchURL(result nlu.ParseResult) (string, error) {
 	if result.Origin == nil || result.Destination == nil || result.Date == nil {
 		return "", fmt.Errorf("cannot build bus search URL: origin, destination, and date must all be resolved")
 	}
-	o, ok1 := LookupBusCity(result.Origin.IATA)
-	d, ok2 := LookupBusCity(result.Destination.IATA)
+	o, ok1 := LookupBusCity(result.Origin.Name)
+	d, ok2 := LookupBusCity(result.Destination.Name)
 	if !ok1 || !ok2 {
 		return "", ErrBusCityUnsupported
 	}
@@ -123,7 +128,7 @@ func BuildHotelSearchURL(result nlu.ParseResult, nights int) (string, error) {
 		nights = 1
 	}
 
-	hotelCity, ok := LookupHotelCity(result.Destination.IATA)
+	hotelCity, ok := LookupHotelCity(result.Destination.Name)
 	if !ok {
 		return "", ErrHotelCityUnsupported
 	}

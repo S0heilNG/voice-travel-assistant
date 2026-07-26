@@ -5,15 +5,16 @@ import (
 	"strings"
 )
 
-// TODO: the IATA codes below are from general knowledge and have NOT been
-// validated against 780.ir's real airport data. Before this goes anywhere
-// near production, cross-check every code against the actual API we found:
-// GET https://api.780.ir/domestic-flight-aggregator/v1/airports?query=<name>
-// and fix anything that's wrong.
-
-// City is a resolved Iranian city with its domestic-flight IATA code.
-// JSON tags are on the domain type itself (rather than a separate handler
-// DTO) since this project is small enough that one shape serves both.
+// City is a resolved Iranian city. Name is the canonical Persian name — it is
+// the key every downstream service (flight/train/bus/hotel) uses to look up
+// its own identifier for the city, so those services no longer depend on the
+// city having an airport. IATA is the domestic-flight code and is "" for
+// cities 780.ir has no confirmed airport for (they simply aren't flight-able).
+//
+// TODO: IATA codes are from general knowledge, not validated against 780.ir's
+// airport API (GET https://api.780.ir/domestic-flight-aggregator/v1/airports).
+// New cities added for train/bus are intentionally left IATA:"" until their
+// airports can be confirmed there — a broken flight URL is worse than none.
 type City struct {
 	Name string `json:"name"`
 	IATA string `json:"iata"`
@@ -24,6 +25,13 @@ type cityEntry struct {
 	aliases []string
 }
 
+// cityEntries is the vocabulary. A city is here if any service supports it;
+// which services actually cover it is decided by the per-service tables in
+// internal/searchurl (keyed by Name), not by this list.
+//
+// Deliberately excluded because the name is a common Persian word and would
+// misfire as a whole-word match: "خوی" (temperament) and "وان" (bathtub, and
+// it's in Turkey anyway).
 var cityEntries = []cityEntry{
 	{City{"تهران", "THR"}, []string{"تهران", "تهرون"}},
 	{City{"مشهد", "MHD"}, []string{"مشهد", "مشهد مقدس"}},
@@ -45,17 +53,44 @@ var cityEntries = []cityEntry{
 	{City{"ارومیه", "OMH"}, []string{"ارومیه", "اورمیه"}},
 	{City{"گرگان", "GBT"}, []string{"گرگان"}},
 	{City{"بیرجند", "XBJ"}, []string{"بیرجند"}},
+	// Added for train/bus coverage (Persian↔slug confirmed from 780.ir's SSG
+	// route data). IATA left "" until the airport list confirms them.
+	{City{"ایلام", ""}, []string{"ایلام"}},
+	{City{"همدان", ""}, []string{"همدان"}},
+	{City{"کاشان", ""}, []string{"کاشان"}},
+	{City{"کرج", ""}, []string{"کرج"}},
+	{City{"جهرم", ""}, []string{"جهرم"}},
+	{City{"رامسر", ""}, []string{"رامسر"}},
+	{City{"زنجان", ""}, []string{"زنجان"}},
+	{City{"سمنان", ""}, []string{"سمنان"}},
+	{City{"قزوین", ""}, []string{"قزوین"}},
+	{City{"جلفا", ""}, []string{"جلفا"}},
 }
 
 var aliasToCity map[string]City
+
+// aliasTokens is every alias pre-split into words, sorted longest-first so a
+// greedy scan prefers "بندر عباس" over a hypothetical "بندر" and never lets a
+// shorter name shadow a longer one.
+type aliasTokenEntry struct {
+	tokens []string
+	city   City
+}
+
+var aliasTokens []aliasTokenEntry
 
 func init() {
 	aliasToCity = make(map[string]City, len(cityEntries)*2)
 	for _, entry := range cityEntries {
 		for _, alias := range entry.aliases {
-			aliasToCity[alias] = entry.city
+			key := Normalize(alias)
+			aliasToCity[key] = entry.city
+			aliasTokens = append(aliasTokens, aliasTokenEntry{strings.Fields(key), entry.city})
 		}
 	}
+	sort.Slice(aliasTokens, func(i, j int) bool {
+		return len(aliasTokens[i].tokens) > len(aliasTokens[j].tokens)
+	})
 }
 
 // LookupCity resolves a normalized city name/alias to a City. It expects an
@@ -75,15 +110,49 @@ type cityMatch struct {
 	start int
 }
 
-// findCitiesInText scans normalized free-form text for any known city
-// alias and returns matches ordered by where they appear in the text.
+// findCitiesInText scans normalized text for known cities using whole-word,
+// longest-first, non-overlapping matching. Whole-word (not substring) is what
+// stops "کرمان" from matching inside "کرمانشاه", "شوش" inside "شوشتر", or "بم"
+// inside "بمب"; longest-first stops a multi-word name from being shadowed by a
+// prefix. Returns matches in order of appearance.
 func findCitiesInText(text string) []cityMatch {
+	words := strings.Fields(text)
+
+	// Byte offset of each word. text is Normalize'd (single-spaced, trimmed),
+	// so a running "+len(word)+1 for the space" reproduces real offsets.
+	offsets := make([]int, len(words))
+	off := 0
+	for i, w := range words {
+		offsets[i] = off
+		off += len(w) + len(" ")
+	}
+
 	var matches []cityMatch
-	for alias, city := range aliasToCity {
-		if idx := strings.Index(text, alias); idx != -1 {
-			matches = append(matches, cityMatch{city: city, start: idx})
+	i := 0
+	for i < len(words) {
+		matched := false
+		for _, ae := range aliasTokens { // longest-first
+			n := len(ae.tokens)
+			if i+n > len(words) {
+				continue
+			}
+			ok := true
+			for k := 0; k < n; k++ {
+				if words[i+k] != ae.tokens[k] {
+					ok = false
+					break
+				}
+			}
+			if ok {
+				matches = append(matches, cityMatch{city: ae.city, start: offsets[i]})
+				i += n // non-overlapping: skip the whole matched name
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			i++
 		}
 	}
-	sort.Slice(matches, func(i, j int) bool { return matches[i].start < matches[j].start })
 	return matches
 }
