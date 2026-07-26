@@ -25,46 +25,86 @@ type cityEntry struct {
 	aliases []string
 }
 
-// cityEntries is the vocabulary. A city is here if any service supports it;
-// which services actually cover it is decided by the per-service tables in
-// internal/searchurl (keyed by Name), not by this list.
+// cityEntries is the vocabulary. IATA codes come from 780.ir's own airport API
+// (so the flight URLs are authoritative); "" means the city has no airport but
+// is reachable by train/bus. Which services actually cover a city is decided by
+// the per-service tables in internal/searchurl (keyed by Name), not by this
+// list. جلفا/قزوین are the only entries with no airport (train-only).
 //
-// Deliberately excluded because the name is a common Persian word and would
-// misfire as a whole-word match: "خوی" (temperament) and "وان" (bathtub, and
-// it's in Turkey anyway).
+// Deliberately excluded because the name is a common Persian word that would
+// misfire as a whole-word match, despite having an airport: "بم" (bass/low),
+// "خوی" (temperament), plus "وان" (bathtub; Turkey). Also skipped the redundant
+// second Bandar Abbas field (هوادریا) and an obscure military strip (بیشه‌کلا).
 var cityEntries = []cityEntry{
-	{City{"تهران", "THR"}, []string{"تهران", "تهرون"}},
-	{City{"مشهد", "MHD"}, []string{"مشهد", "مشهد مقدس"}},
-	{City{"شیراز", "SYZ"}, []string{"شیراز"}},
-	{City{"اصفهان", "IFN"}, []string{"اصفهان", "اصفهون"}},
-	{City{"تبریز", "TBZ"}, []string{"تبریز"}},
-	{City{"کیش", "KIH"}, []string{"کیش", "جزیره کیش"}},
+	{City{"آبادان", "ABD"}, []string{"آبادان"}},
+	{City{"ابو موسی", "AEU"}, []string{"ابو موسی"}},
 	{City{"اهواز", "AWZ"}, []string{"اهواز"}},
-	{City{"بندرعباس", "BND"}, []string{"بندرعباس", "بندر عباس"}},
-	{City{"رشت", "RAS"}, []string{"رشت"}},
-	{City{"کرمان", "KER"}, []string{"کرمان"}},
-	{City{"یزد", "AZD"}, []string{"یزد"}},
-	{City{"قشم", "GSM"}, []string{"قشم", "جزیره قشم"}},
-	{City{"ساری", "SRY"}, []string{"ساری"}},
+	{City{"اراک", "AJK"}, []string{"اراک"}},
 	{City{"اردبیل", "ADU"}, []string{"اردبیل"}},
-	{City{"زاهدان", "ZAH"}, []string{"زاهدان"}},
-	{City{"کرمانشاه", "KSH"}, []string{"کرمانشاه"}},
-	{City{"بوشهر", "BUZ"}, []string{"بوشهر"}},
-	{City{"ارومیه", "OMH"}, []string{"ارومیه", "اورمیه"}},
-	{City{"گرگان", "GBT"}, []string{"گرگان"}},
+	{City{"عسلویه", "PGU"}, []string{"عسلویه"}},
+	{City{"بابلسر", "BBL"}, []string{"بابلسر"}},
+	{City{"بندرعباس", "BND"}, []string{"بندرعباس", "بندر عباس"}},
+	{City{"بندر لنگه", "BDH"}, []string{"بندر لنگه"}},
 	{City{"بیرجند", "XBJ"}, []string{"بیرجند"}},
-	// Added for train/bus coverage (Persian↔slug confirmed from 780.ir's SSG
-	// route data). IATA left "" until the airport list confirms them.
-	{City{"ایلام", ""}, []string{"ایلام"}},
-	{City{"همدان", ""}, []string{"همدان"}},
-	{City{"کاشان", ""}, []string{"کاشان"}},
-	{City{"کرج", ""}, []string{"کرج"}},
-	{City{"جهرم", ""}, []string{"جهرم"}},
-	{City{"رامسر", ""}, []string{"رامسر"}},
-	{City{"زنجان", ""}, []string{"زنجان"}},
-	{City{"سمنان", ""}, []string{"سمنان"}},
-	{City{"قزوین", ""}, []string{"قزوین"}},
+	{City{"بجنورد", "BJB"}, []string{"بجنورد"}},
+	{City{"بوشهر", "BUZ"}, []string{"بوشهر"}},
+	{City{"چابهار", "ZBR"}, []string{"چابهار"}},
+	{City{"دزفول", "DEF"}, []string{"دزفول"}},
+	{City{"فسا", "FAZ"}, []string{"فسا"}},
+	{City{"گرگان", "GBT"}, []string{"گرگان"}},
+	{City{"همدان", "HDM"}, []string{"همدان"}},
+	{City{"ایلام", "IIL"}, []string{"ایلام"}},
+	{City{"ایرانشهر", "IHR"}, []string{"ایرانشهر"}},
+	{City{"اصفهان", "IFN"}, []string{"اصفهان", "اصفهون"}},
+	{City{"جیرفت", "JYR"}, []string{"جیرفت"}},
+	{City{"کلاله", "KLM"}, []string{"کلاله"}},
+	{City{"کنگان", "KNR"}, []string{"کنگان"}},
+	{City{"کاشان", "KKS"}, []string{"کاشان"}},
+	{City{"کرمان", "KER"}, []string{"کرمان"}},
+	{City{"کرمانشاه", "KSH"}, []string{"کرمانشاه"}},
+	{City{"پیرانشهر", "KHA"}, []string{"پیرانشهر"}},
+	{City{"خارک", "KHK"}, []string{"خارک"}},
+	{City{"خرم آباد", "KHD"}, []string{"خرم آباد", "خرمآباد"}},
+	{City{"کیش", "KIH"}, []string{"کیش", "جزیره کیش"}},
+	{City{"لامرد", "LFM"}, []string{"لامرد"}},
+	{City{"لار", "LRR"}, []string{"لار"}},
+	{City{"لاون", "LVP"}, []string{"لاون", "لاوان"}},
+	{City{"ماهشهر", "MRX"}, []string{"ماهشهر"}},
+	{City{"مشهد", "MHD"}, []string{"مشهد", "مشهد مقدس"}},
+	{City{"نوشهر", "NSH"}, []string{"نوشهر"}},
+	{City{"قشم", "GSM"}, []string{"قشم", "جزیره قشم"}},
+	{City{"رفسنجان", "RJN"}, []string{"رفسنجان"}},
+	{City{"رامسر", "RZR"}, []string{"رامسر"}},
+	{City{"رشت", "RAS"}, []string{"رشت"}},
+	{City{"سبزوار", "AFZ"}, []string{"سبزوار"}},
+	{City{"مراغه", "ACP"}, []string{"مراغه"}},
+	{City{"سنندج", "SDG"}, []string{"سنندج"}},
+	{City{"سرخس", "CKT"}, []string{"سرخس"}},
+	{City{"ساری", "SRY"}, []string{"ساری"}},
+	{City{"شهرکرد", "CQD"}, []string{"شهرکرد"}},
+	{City{"شیراز", "SYZ"}, []string{"شیراز"}},
+	{City{"سیرجان", "SYJ"}, []string{"سیرجان"}},
+	{City{"جزیره سیری", "SXI"}, []string{"جزیره سیری"}},
+	{City{"طبس", "TCX"}, []string{"طبس"}},
+	{City{"تبریز", "TBZ"}, []string{"تبریز"}},
+	{City{"تهران", "THR"}, []string{"تهران", "تهرون"}},
+	{City{"ارومیه", "OMH"}, []string{"ارومیه", "اورمیه"}},
+	{City{"یزد", "AZD"}, []string{"یزد"}},
+	{City{"زابل", "ACZ"}, []string{"زابل"}},
+	{City{"زاهدان", "ZAH"}, []string{"زاهدان"}},
+	{City{"زنجان", "JWN"}, []string{"زنجان"}},
+	{City{"جهرم", "JAR"}, []string{"جهرم"}},
+	{City{"کرج", "PYK"}, []string{"کرج"}},
+	{City{"یاسوج", "YES"}, []string{"یاسوج"}},
+	{City{"ماکو", "IMQ"}, []string{"ماکو"}},
+	{City{"پارس آباد", "PFQ"}, []string{"پارس آباد"}},
+	{City{"سمنان", "SNX"}, []string{"سمنان"}},
+	{City{"گناباد", "MDN"}, []string{"گناباد"}},
+	{City{"گچساران", "GCH"}, []string{"گچساران"}},
+	{City{"سقز", "TQZ"}, []string{"سقز"}},
+	// Train-only (no airport): confirmed train slugs, no flight.
 	{City{"جلفا", ""}, []string{"جلفا"}},
+	{City{"قزوین", ""}, []string{"قزوین"}},
 }
 
 var aliasToCity map[string]City

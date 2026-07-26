@@ -31,6 +31,14 @@ func TestFindCitiesWholeWord(t *testing.T) {
 		{"ahvazi (adjective) is not ahvaz", "من اهوازی هستم", nil},
 		{"internet is not a city", "اینترنت خونه قطع شده", nil},
 		{"no city", "هوا خیلی خوبه امروز", nil},
+		// Deliberately-excluded common-word city names must NOT be recognized.
+		{"bam (bass) excluded", "صدای بم دوست دارم", nil},
+		{"khoy (temperament) excluded", "خوی خوبی داری", nil},
+		{"siri (satiety) not a bare city", "آدم سیری ناپذیری هستم", nil},
+		// ...but the island with its full name is fine.
+		{"jazire siri island", "پرواز به جزیره سیری", []string{"جزیره سیری"}},
+		// A newly added airport city.
+		{"abadan", "پرواز تهران به آبادان", []string{"تهران", "آبادان"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
