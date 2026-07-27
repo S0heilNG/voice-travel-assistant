@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/soheilnegahi/voice-travel-assistant/backend/internal/analytics"
 	"github.com/soheilnegahi/voice-travel-assistant/backend/internal/nlu"
 	"github.com/soheilnegahi/voice-travel-assistant/backend/internal/searchurl"
 )
@@ -31,7 +32,7 @@ type parseResponse struct {
 	CitySupported bool `json:"citySupported"`
 }
 
-func parseText(c *fiber.Ctx) error {
+func (a *api) parseText(c *fiber.Ctx) error {
 	var req parseRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON body"})
@@ -87,6 +88,24 @@ func parseText(c *fiber.Ctx) error {
 		}
 	}
 
+	// Record the interaction (no-op if logging is disabled; never fails the
+	// request). Categorized so we can group the "couldn't help" cases.
+	category, detail := categorize(req.Text, result, citySupported, searchURL != "")
+	a.store.LogParse(analytics.ParseLog{
+		SessionID:      sessionID(c),
+		RawText:        req.Text,
+		Intent:         string(result.Intent),
+		Origin:         cityName(result.Origin),
+		Destination:    cityName(result.Destination),
+		Date:           dateString(result.Date),
+		Nights:         result.Nights,
+		Missing:        strings.Join(missing, ","),
+		CitySupported:  citySupported,
+		SearchURLBuilt: searchURL != "",
+		Category:       category,
+		CategoryDetail: detail,
+	})
+
 	return c.JSON(parseResponse{
 		Intent:        result.Intent,
 		Origin:        result.Origin,
@@ -98,4 +117,44 @@ func parseText(c *fiber.Ctx) error {
 		SearchURL:     searchURL,
 		CitySupported: citySupported,
 	})
+}
+
+func cityName(c *nlu.City) string {
+	if c == nil {
+		return ""
+	}
+	return c.Name
+}
+
+func dateString(d *nlu.JalaliDate) string {
+	if d == nil {
+		return ""
+	}
+	return d.String()
+}
+
+// categorize groups a parse for analysis. The category is for grouping only —
+// the raw text is always stored regardless. Empty category means the request
+// was fully resolved (a success at the parse level; funnel events tell whether
+// the user then went to 780).
+func categorize(text string, result nlu.ParseResult, citySupported, urlBuilt bool) (category, detail string) {
+	// A request for a service we don't offer is the most valuable "couldn't
+	// help" signal, so it wins even when a city made us guess a real intent
+	// (e.g. "تور کیش" parses as flight because کیش is a city).
+	if svc := nlu.DetectUnsupportedService(text); svc != "" {
+		return "unsupported_service", svc
+	}
+	switch result.Intent {
+	case nlu.IntentHelp:
+		return "help", ""
+	case nlu.IntentUnknown:
+		return "unknown_intent", ""
+	}
+	if !citySupported {
+		return "unsupported_city_for_service", string(result.Intent)
+	}
+	if len(result.Missing) > 0 {
+		return "incomplete", strings.Join(result.Missing, ",")
+	}
+	return "", ""
 }

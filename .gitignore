@@ -17,3 +17,8 @@ build/
 # Env
 .env
 .env.local
+
+# Analytics SQLite DB (lives in the deploy shared/ dir, never in the repo)
+*.db
+*.db-wal
+*.db-shm

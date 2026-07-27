@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useState } from 'react'
-import { parseText } from './api.js'
+import { parseText, sendEvent } from './api.js'
 import { useSpeechRecognition, VOICE_UNAVAILABLE_CODES } from './useSpeechRecognition.js'
 import { useSpeechSynthesis } from './useSpeechSynthesis.js'
 import { addJalaliDays, buildHotelSearchUrl, lookupHotelCity } from './hotelCities.js'
@@ -388,15 +388,20 @@ function App() {
         new Promise((resolve) => setTimeout(resolve, MIN_THINKING_MS)),
       ])
 
+      // An answer to a clarification question (vs. a fresh first utterance).
+      if (inConversation) sendEvent('clarification_answered')
+
       // Greeting or "what can you do?" → friendly help screen, not a search.
       if (data.intent === 'help') {
         setAccumulatedSlots(null)
+        sendEvent('help_shown')
         dispatch({ type: 'HELP' })
         return
       }
 
       // First utterance we can't understand at all → don't enter the loop.
       if (!inConversation && data.intent === 'unknown') {
+        sendEvent('error_shown', 'unknown_intent')
         dispatch({
           type: 'ERROR',
           error:
@@ -410,11 +415,14 @@ function App() {
 
       const missing = computeMissing(merged)
       if (missing.length === 0) {
+        sendEvent('confirm_shown', merged.intent)
         dispatch({ type: 'CONFIRM' })
       } else {
+        sendEvent('clarification_shown', missing.join(','))
         dispatch({ type: 'CLARIFY', question: buildQuestion(missing, merged) })
       }
     } catch (err) {
+      sendEvent('error_shown', 'network')
       dispatch({ type: 'ERROR', error: err.message })
     }
   }
@@ -442,6 +450,8 @@ function App() {
   useEffect(() => {
     if (!speechError) return
     setLastErrorCode(speechErrorCode || '')
+    // Raw Web Speech code — the key signal for diagnosing the iOS issue.
+    sendEvent('voice_error', speechErrorCode || 'unknown')
 
     // Device can't do speech at all → don't dead-end on an error screen.
     // Switch to typing, keep any conversation context, and explain why.
@@ -505,6 +515,7 @@ function App() {
   }
 
   function handleNewSearch() {
+    sendEvent('new_search')
     setAccumulatedSlots(null)
     setLastTranscript('')
     setTextValue('')
@@ -522,6 +533,8 @@ function App() {
   // Opened synchronously inside the click so the popup blocker treats it as
   // a user gesture; the redirect screen is then shown as confirmation.
   function handleSearch() {
+    // The key success event: the user actually went to 780.
+    sendEvent('search_clicked', accumulatedSlots?.intent ?? '')
     if (searchUrl) window.open(searchUrl, '_blank', 'noopener')
     dispatch({ type: 'REDIRECT' })
   }
@@ -529,6 +542,7 @@ function App() {
   // Partial slot editing needs machinery we don't have yet, so correcting
   // simply starts the conversation over.
   function handleCorrect() {
+    sendEvent('correction_clicked', accumulatedSlots?.intent ?? '')
     setAccumulatedSlots(null)
     setLastTranscript('')
     setTextValue('')
@@ -633,6 +647,9 @@ function App() {
             </div>
           )}
           <div className="mic-stage">{renderInputArea()}</div>
+          <p className="privacy-note">
+            نسخه‌ی آزمایشی — برای بهتر شدن دستیار، تعامل‌ها به‌صورت ناشناس ثبت می‌شود.
+          </p>
         </>
       )}
 
