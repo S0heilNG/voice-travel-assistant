@@ -66,6 +66,47 @@ func detectIntent(text string) Intent {
 	return IntentUnknown
 }
 
+// internationalWordKeywords are matched as whole words: "خارجی" is a substring
+// of nothing common, but whole-word matching is the house rule for this module
+// and costs nothing here.
+var internationalWordKeywords = []string{"خارجی", "خارج"}
+
+// internationalPhraseKeywords are distinctive enough to match as substrings.
+// Normalize turns the ZWNJ in "بین‌المللی" into a space, so the spaced form
+// covers both spellings.
+var internationalPhraseKeywords = []string{"بین المللی", "بینالمللی"}
+
+// isInternationalFlight decides whether a flight search leaves Iran.
+//
+// The city is the primary signal, not the wording: "بلیط تهران به استانبول"
+// must be international even though nothing in it says so. An explicit
+// "خارجی"/"بین المللی" also forces it, which is what lets a user ask for an
+// international flight before naming any city ("پرواز خارجی می‌خوام") and get
+// asked for the route rather than being routed to the domestic search.
+func isInternationalFlight(text string, origin, destination *City) bool {
+	if firstWholeWordIndex(text, internationalWordKeywords) != -1 {
+		return true
+	}
+	if firstKeywordIndex(text, internationalPhraseKeywords) != -1 {
+		return true
+	}
+	return IsForeignCity(origin) || IsForeignCity(destination)
+}
+
+// roundTripWordKeywords / roundTripPhraseKeywords signal that the user wants a
+// return leg. "برگشت" as a whole word covers "رفت و برگشت" too (Normalize has
+// already split the ZWNJ), and "دوطرفه"/"دو طرفه" are the common alternatives.
+var roundTripWordKeywords = []string{"برگشت", "برگردم", "برمیگردم", "دوطرفه"}
+var roundTripPhraseKeywords = []string{"دو طرفه", "رفت و برگشت", "برمی گردم"}
+
+// wantsRoundTrip reports whether the user asked for a return leg without
+// necessarily giving its date. Used to decide between asking "when do you come
+// back?" and silently defaulting to one-way.
+func wantsRoundTrip(text string) bool {
+	return firstWholeWordIndex(text, roundTripWordKeywords) != -1 ||
+		firstKeywordIndex(text, roundTripPhraseKeywords) != -1
+}
+
 // greetingKeywords are matched as whole words: "سلام" is a substring of
 // "سلامت"/"سلامتی" (health), which are not greetings.
 var greetingKeywords = []string{"سلام", "درود", "سلم"}

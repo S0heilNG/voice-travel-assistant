@@ -212,3 +212,71 @@ func TestTrainBusUnsupportedCity(t *testing.T) {
 		t.Errorf("bus to Ardabil: unexpected error %v", err)
 	}
 }
+
+func TestBuildInternationalFlightSearchURL(t *testing.T) {
+	tehran := nlu.City{Name: "تهران", IATA: "IKA"}
+	istanbul := nlu.City{Name: "استانبول", IATA: "IST"}
+	depart := nlu.JalaliDate{Year: 1405, Month: 5, Day: 15}
+	back := nlu.JalaliDate{Year: 1405, Month: 5, Day: 22}
+
+	t.Run("one way", func(t *testing.T) {
+		got, err := BuildInternationalFlightSearchURL(nlu.ParseResult{
+			Intent: nlu.IntentIntlFlightSearch, Origin: &tehran, Destination: &istanbul,
+			Date: &depart, Adults: 1,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := "https://780.ir/tourism/international/IKA-IST?departureDate=1405-05-15" +
+			"&cabinType=CABIN_TYPE_ECONOMY&adult=1&child=0&infant=0" +
+			"&originType=0&destinationType=0&tripMode=1&sort=fast"
+		if got != want {
+			t.Errorf("got  %s\nwant %s", got, want)
+		}
+	})
+
+	t.Run("round trip", func(t *testing.T) {
+		got, err := BuildInternationalFlightSearchURL(nlu.ParseResult{
+			Intent: nlu.IntentIntlFlightSearch, Origin: &tehran, Destination: &istanbul,
+			Date: &depart, ReturnDate: &back, Adults: 2,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// The parameter is returningDate, not returnDate — spelling it the
+		// other way silently drops the return leg.
+		want := "https://780.ir/tourism/international/IKA-IST?departureDate=1405-05-15" +
+			"&returningDate=1405-05-22" +
+			"&cabinType=CABIN_TYPE_ECONOMY&adult=2&child=0&infant=0" +
+			"&originType=0&destinationType=0&tripMode=2&sort=fast"
+		if got != want {
+			t.Errorf("got  %s\nwant %s", got, want)
+		}
+	})
+
+	t.Run("rejects a domestic intent", func(t *testing.T) {
+		if _, err := BuildInternationalFlightSearchURL(nlu.ParseResult{
+			Intent: nlu.IntentFlightSearch, Origin: &tehran, Destination: &istanbul, Date: &depart,
+		}); err == nil {
+			t.Error("expected an error for a non-international intent")
+		}
+	})
+}
+
+// End-to-end: the URL a real utterance produces, including the IKA swap.
+func TestInternationalURLFromParse(t *testing.T) {
+	res := nlu.Parse("بلیط تهران به استانبول برای 15 مرداد")
+	if res.Intent != nlu.IntentIntlFlightSearch {
+		t.Fatalf("intent = %q", res.Intent)
+	}
+	got, err := BuildInternationalFlightSearchURL(res)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(got, "/international/IKA-IST?") {
+		t.Errorf("expected IKA-IST in %s", got)
+	}
+	if !strings.Contains(got, "tripMode=1") {
+		t.Errorf("expected one-way tripMode in %s", got)
+	}
+}

@@ -16,9 +16,10 @@ func DetectUnsupportedService(text string) string {
 		strings.Contains(n, "بوم گردی"),
 		strings.Contains(n, "اقامتگاه بوم"):
 		return "villa" // villa / ecolodge — not hotel search
-	case standaloneWordIndex(n, "خارجی") != -1,
-		strings.Contains(n, "بین المللی"):
-		return "international" // international flight; we only do domestic
 	}
+	// "international" used to be reported here. International flights are a
+	// supported service now (IntentIntlFlightSearch), so keeping the label
+	// would inflate the "services users want but we lack" counts with demand
+	// we actually serve.
 	return ""
 }

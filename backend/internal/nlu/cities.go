@@ -124,18 +124,73 @@ type aliasTokenEntry struct {
 
 var aliasTokens []aliasTokenEntry
 
+// foreignCityNames holds the canonical name of every city from intlCityEntries,
+// so a resolved City can be classified without carrying a flag through the JSON
+// response. This is what decides domestic vs international (see IsForeignCity).
+var foreignCityNames map[string]bool
+
 func init() {
-	aliasToCity = make(map[string]City, len(cityEntries)*2)
-	for _, entry := range cityEntries {
-		for _, alias := range entry.aliases {
-			key := Normalize(alias)
-			aliasToCity[key] = entry.city
-			aliasTokens = append(aliasTokens, aliasTokenEntry{strings.Fields(key), entry.city})
+	aliasToCity = make(map[string]City, (len(cityEntries)+len(intlCityEntries))*2)
+	foreignCityNames = make(map[string]bool, len(intlCityEntries))
+
+	add := func(entries []cityEntry, foreign bool) {
+		for _, entry := range entries {
+			if foreign {
+				foreignCityNames[entry.city.Name] = true
+			}
+			for _, alias := range entry.aliases {
+				key := Normalize(alias)
+				// Domestic entries are added first and win on collision: an
+				// Iranian city must never be shadowed by a foreign namesake,
+				// or a domestic search would silently turn international.
+				if _, taken := aliasToCity[key]; taken {
+					continue
+				}
+				aliasToCity[key] = entry.city
+				aliasTokens = append(aliasTokens, aliasTokenEntry{strings.Fields(key), entry.city})
+			}
 		}
 	}
+	add(cityEntries, false)
+	add(intlCityEntries, true)
+
 	sort.Slice(aliasTokens, func(i, j int) bool {
 		return len(aliasTokens[i].tokens) > len(aliasTokens[j].tokens)
 	})
+}
+
+// IsForeignCity reports whether a resolved city is outside Iran. Origin or
+// destination being foreign is what makes a flight international.
+func IsForeignCity(c *City) bool {
+	return c != nil && foreignCityNames[c.Name]
+}
+
+// ikaTehran is Tehran's international airport. Tehran has two: Mehrabad (THR)
+// serves domestic flights and Imam Khomeini (IKA) serves international ones, so
+// the code depends on the service, not just the city. Every other Iranian city
+// uses one airport for both.
+const ikaTehran = "IKA"
+
+// InternationalIATA returns the airport code to use for an international
+// flight. It is applied to the City before it reaches the JSON response, so the
+// frontend — which builds its URL from the iata the backend hands it — gets the
+// right code without needing any of this knowledge.
+func InternationalIATA(c City) string {
+	if c.Name == "تهران" {
+		return ikaTehran
+	}
+	return c.IATA
+}
+
+// withIntlIATA returns a copy of c carrying its international airport code.
+// nil passes through so callers can apply it to a possibly-missing endpoint.
+func withIntlIATA(c *City) *City {
+	if c == nil {
+		return nil
+	}
+	out := *c
+	out.IATA = InternationalIATA(out)
+	return &out
 }
 
 // LookupCity resolves a normalized city name/alias to a City. It expects an

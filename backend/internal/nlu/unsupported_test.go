@@ -11,8 +11,10 @@ func TestDetectUnsupportedService(t *testing.T) {
 		{"تور استانبول", "tour"},
 		{"ویلا شمال می‌خوام", "villa"},
 		{"اقامتگاه بوم گردی", "villa"},
-		{"پرواز خارجی به استانبول", "international"},
-		{"بلیط بین المللی", "international"},
+		// International flights became a supported service, so they must no
+		// longer be reported as unmet demand.
+		{"پرواز خارجی به استانبول", ""},
+		{"بلیط بین المللی", ""},
 		// Negatives: supported requests must return "".
 		{"بلیط تهران به مشهد فردا", ""},
 		{"اتوبوس تهران به ایلام", ""},

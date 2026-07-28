@@ -12,9 +12,15 @@ type Intent string
 
 const (
 	IntentFlightSearch Intent = "flight_search"
-	IntentHotelSearch  Intent = "hotel_search"
-	IntentTrainSearch  Intent = "train_search"
-	IntentBusSearch    Intent = "bus_search"
+	// IntentIntlFlightSearch is a domestic-flight search that turned out to
+	// leave Iran. It is derived, not detected directly: detectIntent settles on
+	// flight_search first, and parse upgrades it once the cities are known (see
+	// isInternationalFlight). Keeping it out of detectIntent is what preserves
+	// the existing service-keyword priority — "بلیط قطار ..." is still a train.
+	IntentIntlFlightSearch Intent = "international_flight_search"
+	IntentHotelSearch      Intent = "hotel_search"
+	IntentTrainSearch      Intent = "train_search"
+	IntentBusSearch        Intent = "bus_search"
 	// IntentHelp covers "what can you do?" and bare greetings — the user isn't
 	// searching yet, so instead of dead-ending on the error screen we show a
 	// friendly capabilities message. It carries no slots.
@@ -26,7 +32,8 @@ const (
 // trip (flight, train, bus) as opposed to a stay (hotel). Route intents all
 // need an origin, a destination, and a single date.
 func isRouteIntent(i Intent) bool {
-	return i == IntentFlightSearch || i == IntentTrainSearch || i == IntentBusSearch
+	return i == IntentFlightSearch || i == IntentIntlFlightSearch ||
+		i == IntentTrainSearch || i == IntentBusSearch
 }
 
 // ParseResult is the structured outcome of parsing one utterance.
@@ -35,10 +42,13 @@ type ParseResult struct {
 	Origin      *City // stays nil for hotel search
 	Destination *City
 	Date        *JalaliDate // check-in date for hotels, departure date for flights
-	Nights      int         // hotel stay length; 0 when unset/not applicable
-	Adults      int
-	RawText     string
-	Missing     []string // e.g. []string{"destination", "date"}
+	// ReturnDate is set only for a round-trip international flight. nil means
+	// one-way, which is the default (and what 780's own form defaults to).
+	ReturnDate *JalaliDate
+	Nights     int // hotel stay length; 0 when unset/not applicable
+	Adults     int
+	RawText    string
+	Missing    []string // e.g. []string{"destination", "date"}
 }
 
 // Parse extracts intent and entities from raw Persian text.
@@ -64,6 +74,19 @@ func parse(text string, now time.Time) ParseResult {
 	}
 
 	origin, destination := extractOriginDestination(normalized, intent)
+
+	// A flight only becomes international once we know the cities, so the
+	// upgrade happens here rather than in detectIntent. Re-extraction isn't
+	// needed: both are route intents and share the same origin/destination
+	// rules. Tehran's code is then swapped to IKA, so the JSON response the
+	// frontend builds its URL from already carries the right airport.
+	if intent == IntentFlightSearch && isInternationalFlight(normalized, origin, destination) {
+		intent = IntentIntlFlightSearch
+		result.Intent = intent
+		origin = withIntlIATA(origin)
+		destination = withIntlIATA(destination)
+	}
+
 	result.Origin = origin
 	result.Destination = destination
 
@@ -86,6 +109,17 @@ func parse(text string, now time.Time) ParseResult {
 		if nights == 0 {
 			result.Missing = append(result.Missing, "nights")
 		}
+	} else if intent == IntentIntlFlightSearch {
+		result.Date, result.ReturnDate = parseTripDates(normalized, now)
+		if result.Date == nil {
+			result.Missing = append(result.Missing, "date")
+		}
+		// Only ask for a return date when the user actually asked to come
+		// back. Saying nothing about a return means one-way — 780's own form
+		// defaults that way, so asking would be a pointless extra turn.
+		if result.ReturnDate == nil && wantsRoundTrip(normalized) {
+			result.Missing = append(result.Missing, "returnDate")
+		}
 	} else {
 		result.Date = ParseDate(normalized, now)
 		if result.Date == nil {
@@ -94,6 +128,18 @@ func parse(text string, now time.Time) ParseResult {
 	}
 
 	return result
+}
+
+// parseTripDates resolves an international flight's departure and (optional)
+// return date. "از ۱۵ مرداد تا ۲۲ مرداد" is a round trip; a single date is
+// one-way. It reuses parseDateRange, which already refuses to treat the very
+// common word "تا" as a range unless both sides parse as dates — that is also
+// what keeps "از تهران تا استانبول" from being read as one.
+func parseTripDates(text string, now time.Time) (departure, ret *JalaliDate) {
+	if from, to := parseDateRange(text, now); from != nil && to != nil {
+		return from, to
+	}
+	return ParseDate(text, now), nil
 }
 
 // maxAzWordGap bounds how far a city name may be from an "از" (from) marker

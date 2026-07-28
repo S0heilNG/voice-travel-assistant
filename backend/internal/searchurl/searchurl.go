@@ -49,6 +49,47 @@ func BuildFlightSearchURL(result nlu.ParseResult) (string, error) {
 	), nil
 }
 
+// BuildInternationalFlightSearchURL builds a 780.ir international flight
+// results URL.
+//
+// Two things differ from the domestic scheme and both were verified against
+// 780's client bundle and a clean browser session:
+//   - Dates are Jalali here too, despite the destination being abroad. The
+//     bundle formats them with .calendar("jalali"), and the results page echoes
+//     the Gregorian equivalent back, which confirmed it.
+//   - The return-date parameter is spelled "returningDate", not "returnDate".
+//     ("returnDate" is only 780's internal field name — using it in the URL
+//     silently loses the return leg.)
+//
+// tripMode is 1 for one-way and 2 for round-trip; originType/destinationType
+// are 0 because we always send airport codes, never city codes.
+func BuildInternationalFlightSearchURL(result nlu.ParseResult) (string, error) {
+	if result.Intent != nlu.IntentIntlFlightSearch {
+		return "", fmt.Errorf("cannot build international flight search URL: intent is %q, not %q", result.Intent, nlu.IntentIntlFlightSearch)
+	}
+	if result.Origin == nil || result.Destination == nil || result.Date == nil {
+		return "", fmt.Errorf("cannot build international flight search URL: origin, destination, and date must all be resolved")
+	}
+	if result.Origin.IATA == "" || result.Destination.IATA == "" {
+		return "", ErrFlightCityUnsupported
+	}
+
+	tripMode := "1"
+	returning := ""
+	if result.ReturnDate != nil {
+		tripMode = "2"
+		returning = "&returningDate=" + result.ReturnDate.String()
+	}
+
+	return fmt.Sprintf(
+		"https://780.ir/tourism/international/%s-%s?departureDate=%s%s"+
+			"&cabinType=CABIN_TYPE_ECONOMY&adult=%d&child=0&infant=0"+
+			"&originType=0&destinationType=0&tripMode=%s&sort=fast",
+		result.Origin.IATA, result.Destination.IATA, result.Date.String(), returning,
+		result.Adults, tripMode,
+	), nil
+}
+
 // BuildTrainSearchURL builds a 780.ir train results URL. The path uses the
 // train name-slugs (isfahan, ahvaz, ...); 780 fills in gender/wantCompartment
 // defaults itself, so we only send the date and passenger counts. Returns

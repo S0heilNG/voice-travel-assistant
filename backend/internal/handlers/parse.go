@@ -20,10 +20,14 @@ type parseResponse struct {
 	Origin      *nlu.City       `json:"origin"`
 	Destination *nlu.City       `json:"destination"`
 	Date        *nlu.JalaliDate `json:"date"`
-	Nights      int             `json:"nights"`
-	Adults      int             `json:"adults"`
-	Missing     []string        `json:"missing"`
-	SearchURL   string          `json:"searchUrl"`
+	// ReturnDate is non-null only for a round-trip international flight. The
+	// frontend needs it both to show the return leg on the confirm card and to
+	// build the URL with tripMode=2.
+	ReturnDate *nlu.JalaliDate `json:"returnDate"`
+	Nights     int             `json:"nights"`
+	Adults     int             `json:"adults"`
+	Missing    []string        `json:"missing"`
+	SearchURL  string          `json:"searchUrl"`
 	// CitySupported is false when we understood a hotel/train/bus request but
 	// 780.ir doesn't cover one of its cities, so the client can say so instead
 	// of just showing an empty searchUrl. It stays true for flights and for
@@ -54,6 +58,14 @@ func (a *api) parseText(c *fiber.Ctx) error {
 		switch result.Intent {
 		case nlu.IntentFlightSearch:
 			u, err := searchurl.BuildFlightSearchURL(result)
+			switch {
+			case err == nil:
+				searchURL = u
+			case errors.Is(err, searchurl.ErrFlightCityUnsupported):
+				citySupported = false
+			}
+		case nlu.IntentIntlFlightSearch:
+			u, err := searchurl.BuildInternationalFlightSearchURL(result)
 			switch {
 			case err == nil:
 				searchURL = u
@@ -111,6 +123,7 @@ func (a *api) parseText(c *fiber.Ctx) error {
 		Origin:        result.Origin,
 		Destination:   result.Destination,
 		Date:          result.Date,
+		ReturnDate:    result.ReturnDate,
 		Nights:        result.Nights,
 		Adults:        result.Adults,
 		Missing:       missing,

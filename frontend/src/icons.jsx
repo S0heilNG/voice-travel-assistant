@@ -135,6 +135,22 @@ export function BusIcon({ className }) {
   )
 }
 
+// International flights. A globe reads as "abroad" more immediately than
+// another plane would next to the domestic-flight option.
+export function GlobeIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="10" cy="10" r="7.5" />
+        <ellipse cx="10" cy="10" rx="3.2" ry="7.5" />
+        <line x1="2.5" y1="10" x2="17.5" y2="10" />
+        <line x1="4" y1="5.8" x2="16" y2="5.8" />
+        <line x1="4" y1="14.2" x2="16" y2="14.2" />
+      </g>
+    </svg>
+  )
+}
+
 export function ExternalLinkIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 16 18" fill="none" aria-hidden="true">

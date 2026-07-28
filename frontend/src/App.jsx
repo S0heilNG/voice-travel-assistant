@@ -14,6 +14,7 @@ import {
   CalendarIcon,
   CheckIcon,
   ExternalLinkIcon,
+  GlobeIcon,
   MicIcon,
   PassengersIcon,
   PinIcon,
@@ -74,21 +75,38 @@ function reducer(state, action) {
 // still null, so a follow-up ("از تهران فردا") never overwrites what we
 // already know (destination=کیش). Intent is locked from the first utterance.
 function mergeSlots(prev, result) {
+  // The backend asks for a return date only when the user actually requested a
+  // round trip, so that request is what we carry forward — a later answer
+  // can't re-signal it.
+  const askedForReturn = !!result.returnDate || (result.missing ?? []).includes('returnDate')
+
   if (!prev) {
     return {
       intent: result.intent,
       origin: result.origin,
       destination: result.destination,
       date: result.date,
+      returnDate: result.returnDate ?? null,
+      wantsReturn: askedForReturn,
       nights: result.nights,
       adults: result.adults,
     }
   }
+
+  // Each utterance is parsed on its own, so a bare "۲۲ مرداد" answering "when
+  // do you come back?" arrives as a *departure* date. When the return leg is
+  // the only date still missing, that is what it means.
+  const answeringReturn = prev.wantsReturn && !prev.returnDate && !!prev.date
+  const returnDate =
+    prev.returnDate ?? result.returnDate ?? (answeringReturn ? result.date : null)
+
   return {
     intent: prev.intent,
     origin: prev.origin ?? result.origin,
     destination: prev.destination ?? result.destination,
     date: prev.date ?? result.date,
+    returnDate,
+    wantsReturn: prev.wantsReturn || askedForReturn,
     // nights is a number: 0 means "not given yet", so keep any positive value
     // we already have and otherwise take the new one.
     nights: prev.nights || result.nights,
@@ -100,7 +118,7 @@ function mergeSlots(prev, result) {
 // backend's per-parse rule: origin is required only for flights; hotels need
 // a nights count).
 // Route intents (flight/train/bus) go origin→destination; hotel is a stay.
-const ROUTE_INTENTS = ['flight_search', 'train_search', 'bus_search']
+const ROUTE_INTENTS = ['flight_search', 'international_flight_search', 'train_search', 'bus_search']
 
 function computeMissing(slots) {
   const missing = []
@@ -108,6 +126,8 @@ function computeMissing(slots) {
   if (!slots.destination) missing.push('destination')
   if (!slots.date) missing.push('date')
   if (slots.intent === 'hotel_search' && !slots.nights) missing.push('nights')
+  // Only for a round trip the user actually asked for; silence means one-way.
+  if (slots.wantsReturn && !slots.returnDate) missing.push('returnDate')
   return missing
 }
 
@@ -119,6 +139,7 @@ function buildSearchUrl(slots) {
   if (slots.intent === 'hotel_search') return buildHotelSearchUrl(slots)
   if (slots.intent === 'train_search') return buildTrainSearchUrl(slots)
   if (slots.intent === 'bus_search') return buildBusSearchUrl(slots)
+  if (slots.intent === 'international_flight_search') return buildIntlFlightSearchUrl(slots)
   if (slots.intent !== 'flight_search') return null
   if (!slots.origin || !slots.destination || !slots.date) return null
   // A city with no confirmed airport has iata "" — it isn't flight-able.
@@ -126,6 +147,28 @@ function buildSearchUrl(slots) {
   return (
     `https://780.ir/tourism/flights/${slots.origin.iata}-${slots.destination.iata}` +
     `?adult=${slots.adults ?? 1}&child=0&infant=0&departureDate=${slots.date}&sort=lowPrice`
+  )
+}
+
+// International flights use a different path and parameter set from the
+// domestic one. Two details that are easy to get wrong, both verified against
+// 780's own bundle: the dates stay Jalali even though the trip leaves Iran,
+// and the return parameter is spelled `returningDate` (`returnDate` is only
+// 780's internal field name and silently drops the return leg).
+//
+// The iata values come straight from the backend response, which already
+// resolves Tehran to IKA (Imam Khomeini) rather than THR (Mehrabad) for this
+// intent — so no airport knowledge is needed here.
+function buildIntlFlightSearchUrl(slots) {
+  if (!slots.origin || !slots.destination || !slots.date) return null
+  if (!slots.origin.iata || !slots.destination.iata) return null
+  const tripMode = slots.returnDate ? 2 : 1
+  const returning = slots.returnDate ? `&returningDate=${slots.returnDate}` : ''
+  return (
+    `https://780.ir/tourism/international/${slots.origin.iata}-${slots.destination.iata}` +
+    `?departureDate=${slots.date}${returning}` +
+    `&cabinType=CABIN_TYPE_ECONOMY&adult=${slots.adults ?? 1}&child=0&infant=0` +
+    `&originType=0&destinationType=0&tripMode=${tripMode}&sort=fast`
   )
 }
 
@@ -140,6 +183,12 @@ function buildQuestion(missing, slots) {
 function buildRouteQuestion(missing, slots) {
   const dest = slots.destination?.name
   const has = (f) => missing.includes(f)
+
+  // Asked last, once the outbound trip is settled, so the question is only
+  // ever about the leg home.
+  if (has('returnDate') && missing.length === 1) {
+    return dest ? `چه تاریخی از ${dest} برمی‌گردید؟` : 'چه تاریخی برمی‌گردید؟'
+  }
 
   if (has('origin') && has('destination') && has('date')) {
     return 'خیلی خوب! از کجا، به کجا و چه تاریخی می‌خواید سفر کنید؟'
@@ -231,6 +280,7 @@ function formatJalali(date) {
 // intent=unknown and would dead-end on the error screen).
 const SUGGESTIONS = [
   { label: 'بلیط هواپیما', text: 'بلیط هواپیما می‌خوام' },
+  { label: 'پرواز خارجی', text: 'پرواز خارجی می‌خوام' },
   { label: 'بلیط قطار', text: 'بلیط قطار می‌خوام' },
   { label: 'بلیط اتوبوس', text: 'بلیط اتوبوس می‌خوام' },
   { label: 'رزرو هتل', text: 'رزرو هتل' },
@@ -238,12 +288,18 @@ const SUGGESTIONS = [
 
 // Shown (and spoken) on the help screen — a greeting or "what can you do?".
 const HELP_TEXT =
-  'من دستیار سفر هفت‌هشتادم. می‌تونم کمکت کنم بلیط پرواز داخلی، قطار، اتوبوس یا هتل پیدا کنی — فقط کافیه بگی کجا و کِی. مثلاً بگو: بلیط تهران به مشهد برای فردا.'
+  'من دستیار سفر هفت‌هشتادم. می‌تونم کمکت کنم بلیط پرواز داخلی و خارجی، قطار، اتوبوس یا هتل پیدا کنی — فقط کافیه بگی کجا و کِی. مثلاً بگو: بلیط تهران به مشهد برای فردا، یا پرواز تهران به استانبول.'
 
 // Per-service labels/icons for the confirm card, spoken summary, and the
 // keyword we prefix onto clarification answers so bare replies still parse.
 const SERVICES = {
   flight_search: { title: 'جستجوی پرواز', speak: 'پرواز', keyword: 'بلیط', label: 'پرواز' },
+  international_flight_search: {
+    title: 'جستجوی پرواز خارجی',
+    speak: 'پرواز خارجی',
+    keyword: 'پرواز خارجی',
+    label: 'پرواز خارجی',
+  },
   train_search: { title: 'جستجوی قطار', speak: 'قطار', keyword: 'قطار', label: 'قطار' },
   bus_search: { title: 'جستجوی اتوبوس', speak: 'اتوبوس', keyword: 'اتوبوس', label: 'اتوبوس' },
   hotel_search: { title: 'جستجوی هتل', speak: 'هتل', keyword: 'هتل', label: 'هتل' },
@@ -270,7 +326,8 @@ function buildConfirmSpeech(slots) {
   }
   const service = SERVICES[slots.intent]?.speak ?? 'سفر'
   const people = toPersianDigits(slots.adults ?? 1)
-  return `${service} از ${slots.origin.name} به ${slots.destination.name} در تاریخ ${date} برای ${people} نفر. درسته؟`
+  const back = slots.returnDate ? ` و برگشت ${formatJalali(slots.returnDate)}` : ''
+  return `${service} از ${slots.origin.name} به ${slots.destination.name} در تاریخ ${date}${back} برای ${people} نفر. درسته؟`
 }
 
 // Returns the name of a city we understood but 780.ir doesn't cover on the
@@ -289,7 +346,7 @@ function findUnsupportedCity(slots) {
       ? (c) => !!lookupTrainCity(c.name)
       : intent === 'bus_search'
         ? (c) => !!lookupBusCity(c.name)
-        : intent === 'flight_search'
+        : intent === 'flight_search' || intent === 'international_flight_search'
           ? (c) => !!c.iata
           : null
   if (!supported) return null
@@ -299,6 +356,7 @@ function findUnsupportedCity(slots) {
 }
 
 function ServiceIcon({ intent, className }) {
+  if (intent === 'international_flight_search') return <GlobeIcon className={className} />
   if (intent === 'train_search') return <TrainIcon className={className} />
   if (intent === 'bus_search') return <BusIcon className={className} />
   return <SparkleIcon className={className} />
@@ -753,6 +811,17 @@ function App() {
                 <span className="summary-value">
                   {formatJalali(addJalaliDays(accumulatedSlots.date, accumulatedSlots.nights))}
                   <span className="summary-note"> ({toPersianDigits(accumulatedSlots.nights)} شب)</span>
+                </span>
+              </div>
+            )}
+            {accumulatedSlots.returnDate && (
+              <div className="summary-row">
+                <span className="summary-label">
+                  <CalendarIcon className="icon" />
+                  برگشت
+                </span>
+                <span className="summary-value">
+                  {formatJalali(accumulatedSlots.returnDate)}
                 </span>
               </div>
             )}
