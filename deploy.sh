@@ -11,6 +11,9 @@ AUTOMATION_SERVICE="vta-automation"
 KEEP_RELEASES=3
 BACKEND_HEALTH_URL="http://localhost:8080/health"
 AUTOMATION_HEALTH_URL="http://localhost:4000/health"
+# Nginx serves the SPA from $CURRENT_LINK/frontend/dist, so this fetches the
+# index.html of whichever release is currently linked.
+FRONTEND_HEALTH_URL="http://localhost/"
 GO_BIN="/usr/local/go/bin/go"
 
 BRANCH="${1:-main}"
@@ -59,6 +62,35 @@ echo "==> Building backend"
 echo "==> Installing shared .env"
 cp "$SHARED_ENV" "$RELEASE_PATH/backend/.env"
 
+# The frontend is built into the release, and Nginx's root points at
+# $CURRENT_LINK/frontend/dist. That means the atomic symlink switch below
+# swaps the backend and the frontend together, so the served SPA can never
+# drift out of sync with the deployed backend (it used to: Nginx served a
+# separate, hand-copied directory that no deploy ever touched).
+#
+# VITE_API_BASE is deliberately the empty string, not unset: api.js uses `??`
+# so "" means "same origin" (Nginx proxies /api/), while unset would fall
+# back to http://localhost:8080 and break every browser that isn't the server.
+echo "==> Building frontend"
+(
+    cd "$RELEASE_PATH/frontend"
+    npm ci --no-audit --no-fund
+    VITE_API_BASE="" npm run build
+)
+
+if [ ! -f "$RELEASE_PATH/frontend/dist/index.html" ]; then
+    echo "ERROR: frontend build produced no dist/index.html" >&2
+    exit 1
+fi
+
+# Remember the hashed bundle name so the post-switch health check can prove
+# Nginx is really serving *this* release's build, not a stale one.
+BUILT_ASSET="$(basename "$(ls -1 "$RELEASE_PATH"/frontend/dist/assets/*.js | head -1)")"
+echo "==> Frontend bundle: $BUILT_ASSET"
+
+# node_modules is build scratch (~40M); dist is the only artifact Nginx needs.
+rm -rf "$RELEASE_PATH/frontend/node_modules"
+
 if [ -f "$RELEASE_PATH/automation-service/package.json" ]; then
     DEP_COUNT="$(node -e "const p=require('$RELEASE_PATH/automation-service/package.json'); process.stdout.write(String(Object.keys(p.dependencies||{}).length))")"
     if [ "$DEP_COUNT" -gt 0 ]; then
@@ -97,6 +129,17 @@ if curl -sf "$AUTOMATION_HEALTH_URL" > /dev/null; then
     echo "==> $AUTOMATION_SERVICE health check passed"
 else
     echo "==> $AUTOMATION_SERVICE health check FAILED"
+    HEALTH_OK=false
+fi
+
+# Frontend check: assert the *served* index.html references this release's
+# hashed bundle. A plain 200 would not catch the stale-frontend bug, since
+# the old build also returned 200 quite happily.
+echo "==> Health check: $FRONTEND_HEALTH_URL (expecting $BUILT_ASSET)"
+if curl -sf "$FRONTEND_HEALTH_URL" | grep -q "$BUILT_ASSET"; then
+    echo "==> frontend health check passed"
+else
+    echo "==> frontend health check FAILED — served index.html does not reference $BUILT_ASSET"
     HEALTH_OK=false
 fi
 
