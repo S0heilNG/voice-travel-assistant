@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 )
@@ -44,7 +45,7 @@ func TestLoggingRoundTrip(t *testing.T) {
 	s.LogParse(ParseLog{
 		SessionID: "sess1", RawText: "بلیط تهران به مشهد", Intent: "flight_search",
 		Origin: "تهران", Destination: "مشهد", Date: "1405-05-20",
-		CitySupported: true, SearchURLBuilt: true, Category: "",
+		CitySupported: true, URLFromThisUtterance: true, Category: "",
 	})
 	s.LogParse(ParseLog{SessionID: "sess1", RawText: "تور کیش", Intent: "flight_search",
 		Category: "unsupported_service", CategoryDetail: "tour"})
@@ -100,5 +101,43 @@ func TestEventRateLimit(t *testing.T) {
 	// A different session is unaffected.
 	if !s.LogEvent("other", "click", "") {
 		t.Error("a different session should not be rate-limited")
+	}
+}
+
+// A database created before the rename must keep working. Without the
+// migration the INSERT would fail, and since LogParse swallows errors that
+// would take analytics down silently rather than visibly.
+func TestOpenMigratesLegacyColumnName(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy.db")
+
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open raw db: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE parses (
+		id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, session_id TEXT,
+		raw_text TEXT, intent TEXT, origin TEXT, destination TEXT, date TEXT,
+		nights INTEGER, missing TEXT, city_supported INTEGER,
+		search_url_built INTEGER, category TEXT, category_detail TEXT)`); err != nil {
+		t.Fatalf("create legacy table: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close raw db: %v", err)
+	}
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open on legacy db: %v", err)
+	}
+	defer s.Close()
+
+	s.LogParse(ParseLog{SessionID: "sess1", RawText: "بلیط تهران به مشهد", URLFromThisUtterance: true})
+
+	var got int
+	if err := s.db.QueryRow(`SELECT url_from_this_utterance FROM parses`).Scan(&got); err != nil {
+		t.Fatalf("read renamed column: %v", err)
+	}
+	if got != 1 {
+		t.Errorf("url_from_this_utterance = %d, want 1", got)
 	}
 }

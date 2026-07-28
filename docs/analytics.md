@@ -26,14 +26,47 @@
 | `date`, `nights` | تاریخ شمسی و تعداد شب (هتل) |
 | `missing` | فیلدهای کم (comma-separated) |
 | `city_supported` | آیا شهر برای این سرویس پشتیبانی می‌شود |
-| `search_url_built` | آیا در نهایت URL ساخته شد |
+| `url_from_this_utterance` | آیا **همین یک جمله به‌تنهایی** برای ساخت URL کافی بود (پایین را حتماً بخوانید) |
 | `category` | دسته‌بندی خودکار (پایین را ببینید) |
 | `category_detail` | جزئیات دسته (مثلاً سرویس ناموجود، فیلدهای کم) |
 
 **دسته‌بندی‌ها (`category`):** `unsupported_service` (سرویسی که نداریم: تور/پرواز
 خارجی/ویلا) · `unsupported_city_for_service` (شهر را می‌شناسیم ولی سرویس ندارد) ·
 `incomplete` (فیلد کم داشت) · `unknown_intent` (اصلاً نفهمید) · `help` (احوال‌پرسی/
-راهنما) · خالی = کاملاً حل شد. **متن خام همیشه ذخیره می‌شود، حتی وقتی دسته‌بندی شد.**
+راهنما) · خالی = این جمله به‌تنهایی کامل بود. **متن خام همیشه ذخیره می‌شود، حتی وقتی
+دسته‌بندی شد.**
+
+## ⚠️ جدول `parses` موفقیت را نمی‌سنجد — یک جمله را می‌سنجد
+
+**این مهم‌ترین نکته‌ی تفسیری این سند است. اگر آن را ندانید، نرخ موفقیت را به‌شدت
+کمتر از واقعیت برآورد می‌کنید.**
+
+بک‌اند stateless است: هر جمله را **مستقل** پارس می‌کند و انباشت slotها سمت فرانت
+انجام می‌شود. پس هر ردیف در `parses` فقط درباره‌ی همان یک جمله حرف می‌زند، نه درباره‌ی
+کل مکالمه. این یعنی:
+
+- **`url_from_this_utterance`** فقط می‌گوید همان یک جمله به‌تنهایی برای ساخت URL کافی
+  بود یا نه. در هر مکالمه‌ی چندمرحله‌ای این ستون **۰** است، **حتی وقتی کاربر در نهایت
+  موفق شد و جستجو را زد**.
+- **`category`** هم همین‌طور: جمله‌های یک مکالمه‌ی موفق معمولاً `incomplete` ثبت می‌شوند.
+  «خالی» یعنی *آن جمله* کامل بود، نه این‌که کاربر به نتیجه رسید.
+
+**مثال واقعی (جریان دومرحله‌ای تست‌شده در ۲۰۲۶-۰۷-۲۸):** کاربر گفت «بلیط تهران به مشهد»،
+دستیار تاریخ را پرسید، کاربر گفت «فردا»، کارت تأیید آمد و کاربر «جستجو کن» را زد —
+یعنی **یک جریان کاملاً موفق**. چیزی که در `parses` ثبت شد:
+
+| `raw_text` | `missing` | `url_from_this_utterance` | `category` |
+|---|---|---|---|
+| بلیط تهران به مشهد | `date` | ۰ | `incomplete` |
+| بلیط فردا | `origin,destination` | ۰ | `incomplete` |
+
+دو ردیف، هر دو ۰، هر دو `incomplete` — و صفر ردیفِ «حل‌شده». ولی همان نشست در جدول
+`events` رویداد `search_clicked` را دارد.
+
+**سیگنال درست موفقیت، رویداد `search_clicked` در جدول `events` است — نه هیچ ستونی در
+`parses`.** جدول `parses` برای فهمیدن *چه چیزی* کاربران می‌گویند و کجا گیر می‌کنند
+مفید است، نه برای شمردن موفقیت. برای هر سنجش نرخ، در سطح `session_id` کار کنید، نه
+در سطح ردیف.
 
 **`events`** — رویدادهای قیف که فرانت می‌فرستد (`/api/events`):
 `clarification_shown` (detail=فیلدهای کم) · `clarification_answered` ·
@@ -89,9 +122,15 @@ SELECT detail AS webspeech_code, COUNT(*) n FROM events
 WHERE type='voice_error'
 GROUP BY detail ORDER BY n DESC;
 
--- نمای کلی: تفکیک دسته‌ها
-SELECT COALESCE(NULLIF(category,''),'(resolved)') AS category, COUNT(*) n
+-- نمای کلی: تفکیک دسته‌ها. برچسب عمداً «تک‌جمله‌ی کامل» است نه «حل‌شده» —
+-- این شمارش جمله‌هاست، نه مکالمه‌های موفق (بخش هشدار بالا را ببینید).
+SELECT COALESCE(NULLIF(category,''),'(single-utterance complete)') AS category, COUNT(*) n
 FROM parses GROUP BY category ORDER BY n DESC;
+
+-- ۷) نرخ موفقیت واقعی — در سطح نشست، نه ردیف. این تنها راه درست است.
+SELECT
+  (SELECT COUNT(DISTINCT session_id) FROM parses)                             AS sessions_total,
+  (SELECT COUNT(DISTINCT session_id) FROM events WHERE type='search_clicked') AS sessions_searched;
 
 -- نمای کلی: شمارش رویدادها
 SELECT type, COUNT(*) n FROM events GROUP BY type ORDER BY n DESC;

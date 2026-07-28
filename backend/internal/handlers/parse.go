@@ -90,20 +90,20 @@ func (a *api) parseText(c *fiber.Ctx) error {
 
 	// Record the interaction (no-op if logging is disabled; never fails the
 	// request). Categorized so we can group the "couldn't help" cases.
-	category, detail := categorize(req.Text, result, citySupported, searchURL != "")
+	category, detail := categorize(req.Text, result, citySupported)
 	a.store.LogParse(analytics.ParseLog{
-		SessionID:      sessionID(c),
-		RawText:        req.Text,
-		Intent:         string(result.Intent),
-		Origin:         cityName(result.Origin),
-		Destination:    cityName(result.Destination),
-		Date:           dateString(result.Date),
-		Nights:         result.Nights,
-		Missing:        strings.Join(missing, ","),
-		CitySupported:  citySupported,
-		SearchURLBuilt: searchURL != "",
-		Category:       category,
-		CategoryDetail: detail,
+		SessionID:            sessionID(c),
+		RawText:              req.Text,
+		Intent:               string(result.Intent),
+		Origin:               cityName(result.Origin),
+		Destination:          cityName(result.Destination),
+		Date:                 dateString(result.Date),
+		Nights:               result.Nights,
+		Missing:              strings.Join(missing, ","),
+		CitySupported:        citySupported,
+		URLFromThisUtterance: searchURL != "",
+		Category:             category,
+		CategoryDetail:       detail,
 	})
 
 	return c.JSON(parseResponse{
@@ -137,7 +137,7 @@ func dateString(d *nlu.JalaliDate) string {
 // the raw text is always stored regardless. Empty category means the request
 // was fully resolved (a success at the parse level; funnel events tell whether
 // the user then went to 780).
-func categorize(text string, result nlu.ParseResult, citySupported, urlBuilt bool) (category, detail string) {
+func categorize(text string, result nlu.ParseResult, citySupported bool) (category, detail string) {
 	// A request for a service we don't offer is the most valuable "couldn't
 	// help" signal, so it wins even when a city made us guess a real intent
 	// (e.g. "تور کیش" parses as flight because کیش is a city).

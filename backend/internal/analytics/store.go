@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS parses (
     nights          INTEGER,
     missing         TEXT,
     city_supported  INTEGER,
-    search_url_built INTEGER,
+    url_from_this_utterance INTEGER,
     category        TEXT,
     category_detail TEXT
 );
@@ -108,6 +108,50 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 `)
+	if err != nil {
+		return err
+	}
+	return renameLegacySearchURLColumn(db)
+}
+
+// renameLegacySearchURLColumn brings pre-existing databases up to the current
+// column name. CREATE TABLE IF NOT EXISTS leaves an older table untouched, so
+// without this an existing file would keep the old column and every INSERT
+// would fail — and because LogParse swallows its errors, analytics would go
+// silently dead rather than loudly broken.
+//
+// The old name, "search_url_built", read as "the user completed a search". It
+// never meant that: the backend parses each utterance independently, so in any
+// multi-turn conversation the final utterance carries only the last slot and
+// the column is 0 even when the user did go on to search. See docs/analytics.md.
+func renameLegacySearchURLColumn(db *sql.DB) error {
+	rows, err := db.Query(`SELECT name FROM pragma_table_info('parses')`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var hasLegacy, hasCurrent bool
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		switch name {
+		case "search_url_built":
+			hasLegacy = true
+		case "url_from_this_utterance":
+			hasCurrent = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if !hasLegacy || hasCurrent {
+		return nil
+	}
+	_, err = db.Exec(`ALTER TABLE parses RENAME COLUMN search_url_built TO url_from_this_utterance`)
 	return err
 }
 
@@ -133,18 +177,22 @@ func truncate(s string) string {
 
 // ParseLog is one recorded /api/parse call.
 type ParseLog struct {
-	SessionID      string
-	RawText        string
-	Intent         string
-	Origin         string
-	Destination    string
-	Date           string
-	Nights         int
-	Missing        string
-	CitySupported  bool
-	SearchURLBuilt bool
-	Category       string
-	CategoryDetail string
+	SessionID     string
+	RawText       string
+	Intent        string
+	Origin        string
+	Destination   string
+	Date          string
+	Nights        int
+	Missing       string
+	CitySupported bool
+	// URLFromThisUtterance records whether *this single utterance* alone
+	// produced a search URL. It is not a success metric: slots accumulate in
+	// the frontend, so a multi-turn conversation logs 0 here even when the
+	// user searched. The success signal is the search_clicked event.
+	URLFromThisUtterance bool
+	Category             string
+	CategoryDetail       string
 }
 
 func b2i(b bool) int {
@@ -163,11 +211,11 @@ func (s *Store) LogParse(p ParseLog) {
 	_, err := s.db.Exec(
 		`INSERT INTO parses
 		 (ts, session_id, raw_text, intent, origin, destination, date, nights,
-		  missing, city_supported, search_url_built, category, category_detail)
+		  missing, city_supported, url_from_this_utterance, category, category_detail)
 		 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		time.Now().UTC().Format(time.RFC3339), p.SessionID, truncate(p.RawText),
 		p.Intent, p.Origin, p.Destination, p.Date, p.Nights, p.Missing,
-		b2i(p.CitySupported), b2i(p.SearchURLBuilt), p.Category, p.CategoryDetail,
+		b2i(p.CitySupported), b2i(p.URLFromThisUtterance), p.Category, p.CategoryDetail,
 	)
 	if err != nil {
 		log.Printf("analytics: LogParse failed: %v", err)
