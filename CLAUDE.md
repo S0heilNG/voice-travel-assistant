@@ -1,6 +1,6 @@
 # voice-travel-assistant
 
-دستیار سفر صوتی فارسی‌زبان که به جستجوی پرواز، قطار، اتوبوس و هتل پلتفرم ۷۸۰ وصل می‌شود.
+دستیار سفر صوتی فارسی‌زبان که به جستجوی پرواز داخلی و خارجی، قطار، اتوبوس و هتل پلتفرم ۷۸۰ وصل می‌شود.
 
 ## تصمیمات محصولی (از PRD)
 
@@ -166,13 +166,16 @@ git merge-base --is-ancestor main dev && echo FAST_FORWARD_SAFE
 
 اپلیکیشن به‌صورت انتها-به-انتها کار می‌کند و روی staging در دسترس است: **`https://stage.780assistant.ir:8443`** (بخش «دیپلوی» را برای دلیل پورت ۸۴۴۳ ببینید).
 
-**چهار سرویس پشتیبانی می‌شود** (intentها در `internal/nlu/nlu.go`): `flight_search` (فقط داخلی)، `train_search`، `bus_search`، `hotel_search` — به‌علاوه‌ی `help` و `unknown`.
+**پنج سرویس پشتیبانی می‌شود** (intentها در `internal/nlu/nlu.go`): `flight_search` (داخلی)، `international_flight_search`، `train_search`، `bus_search`، `hotel_search` — به‌علاوه‌ی `help` و `unknown`.
+
+**پرواز خارجی — نکته‌ی معماری:** این intent مستقیماً تشخیص داده **نمی‌شود**. `detectIntent` اول طبق همان اولویت کلیدواژه‌ی قبلی به `flight_search` می‌رسد (پس «بلیط قطار …» هنوز قطار است)، و بعد `parse` وقتی شهرها معلوم شدند آن را ارتقا می‌دهد. دلیلش این است که تصمیم داخلی/خارجی به **شهر** وابسته است نه به لفظ: «بلیط تهران به استانبول» باید خارجی شود بدون این‌که کلمه‌ی «خارجی» بیاید. کلیدواژه‌ی صریح «خارجی»/«بین المللی» هم آن را اجبار می‌کند تا کاربر بتواند قبل از گفتن شهر درخواست بدهد.
 
 **پوشش شهرها** — واژگان مشترک در `internal/nlu/cities.go` شامل **۷۳ شهر** است (با aliasها، مثلاً «تهرون»). این‌که هر شهر واقعاً با کدام سرویس قابل جستجوست، با جدول‌های جدا‌گانه‌ی هر سرویس در `internal/searchurl` تعیین می‌شود (کلید: نام فارسی شهر، نه کد IATA):
 
 | سرویس | تعداد شهر | منبع |
 |---|---|---|
-| پرواز | ۵۵ (شهرهایی که `IATA` غیرخالی دارند) | `cities.go` |
+| پرواز داخلی | ۵۵ (شهرهایی که `IATA` غیرخالی دارند) | `cities.go` |
+| پرواز خارجی | ۳۳۵ شهر خارجی (+ شهرهای ایرانی به‌عنوان مبدا) | `intlcities.go` |
 | قطار | ۳۶ | `transitcities.go` (`trainCities`) |
 | اتوبوس | ۶۳ | `transitcities.go` (`busCities`) |
 | هتل | ۸ | `hotelcities.go` (`hotelCities`) |
@@ -183,7 +186,7 @@ git merge-base --is-ancestor main dev && echo FAST_FORWARD_SAFE
 
 - `GET /health` → `{"status":"ok"}`
 - `GET /api/test-automation/flights` — endpoint تست automation-service.
-- `POST /api/parse` — متن فارسی می‌گیرد، JSON شامل `intent`/`origin`/`destination`/`date`/`nights`/`adults`/`missing`/`searchUrl`/`citySupported` برمی‌گرداند. ساخت URL در `internal/searchurl` است (جدا از `nlu`) و برای هر چهار سرویس تابع جدا دارد.
+- `POST /api/parse` — متن فارسی می‌گیرد، JSON شامل `intent`/`origin`/`destination`/`date`/`nights`/`adults`/`missing`/`searchUrl`/`citySupported` برمی‌گرداند. ساخت URL در `internal/searchurl` است (جدا از `nlu`) و برای هر پنج سرویس تابع جدا دارد. برای پرواز خارجی `returnDate` هم برمی‌گردد (فقط در رفت‌وبرگشت).
 - `POST /api/events` — دریافت رویدادهای قیف از فرانت‌اند برای آنالیتیکس.
 - CORS فقط `http://localhost:5173` را می‌پذیرد (نه wildcard)، با هدرهای مجاز `Content-Type`, `ngrok-skip-browser-warning`, `X-Session-Id`. در پروداکشن فرانت same-origin سرو می‌شود، پس CORS اصلاً درگیر نمی‌شود.
 
