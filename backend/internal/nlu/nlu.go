@@ -21,6 +21,10 @@ const (
 	IntentHotelSearch      Intent = "hotel_search"
 	IntentTrainSearch      Intent = "train_search"
 	IntentBusSearch        Intent = "bus_search"
+	// IntentTourSearch is destination-only: 780's tour search takes neither an
+	// origin nor a departure date (dates are a month-level filter on the
+	// results page), so "تور کیش" is already a complete request.
+	IntentTourSearch Intent = "tour_search"
 	// IntentHelp covers "what can you do?" and bare greetings — the user isn't
 	// searching yet, so instead of dead-ending on the error screen we show a
 	// friendly capabilities message. It carries no slots.
@@ -70,6 +74,16 @@ func parse(text string, now time.Time) ParseResult {
 
 	// Help and unknown carry no entities, so there's nothing more to extract.
 	if intent == IntentUnknown || intent == IntentHelp {
+		return result
+	}
+
+	// Tours are destination-only and have their own vocabulary, so they skip
+	// the route logic entirely.
+	if intent == IntentTourSearch {
+		result.Destination = extractTourDestination(normalized)
+		if result.Destination == nil {
+			result.Missing = append(result.Missing, "destination")
+		}
 		return result
 	}
 

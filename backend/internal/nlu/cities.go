@@ -216,6 +216,15 @@ type cityMatch struct {
 // inside "بمب"; longest-first stops a multi-word name from being shadowed by a
 // prefix. Returns matches in order of appearance.
 func findCitiesInText(text string) []cityMatch {
+	return findInVocabulary(text, aliasTokens)
+}
+
+// findInVocabulary is the shared scanner behind findCitiesInText and the
+// tour-destination lookup. Keeping one implementation means a vocabulary with
+// its own word list (tours cover سرعین and ماسال, which no other service does)
+// gets the same whole-word, longest-first, non-overlapping guarantees rather
+// than a second hand-rolled matcher that could drift.
+func findInVocabulary(text string, vocab []aliasTokenEntry) []cityMatch {
 	words := strings.Fields(text)
 
 	// Byte offset of each word. text is Normalize'd (single-spaced, trimmed),
@@ -231,7 +240,7 @@ func findCitiesInText(text string) []cityMatch {
 	i := 0
 	for i < len(words) {
 		matched := false
-		for _, ae := range aliasTokens { // longest-first
+		for _, ae := range vocab { // longest-first
 			n := len(ae.tokens)
 			if i+n > len(words) {
 				continue

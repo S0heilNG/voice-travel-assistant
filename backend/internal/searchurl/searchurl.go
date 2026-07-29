@@ -25,7 +25,38 @@ var (
 	ErrTrainCityUnsupported  = fmt.Errorf("no 780.ir train support for this city")
 	ErrBusCityUnsupported    = fmt.Errorf("no 780.ir bus support for this city")
 	ErrFlightCityUnsupported = fmt.Errorf("no 780.ir flight support for this city")
+	ErrTourDestUnsupported   = fmt.Errorf("no 780.ir tour for this destination")
 )
+
+// BuildTourSearchURL builds a 780.ir tour results URL. Tours are
+// destination-only: no origin, no departure date (the results page filters by
+// month, not day), so a destination alone is a complete request.
+//
+// The type comes from the destination table rather than from any separate
+// domestic/international detection, because 780 is the one that decides which
+// bucket a destination sits in — کربلا and نجف are INTERNATIONAL there.
+//
+// Returns ErrTourDestUnsupported for anything not in the table. That is a hard
+// rule, not caution: 780's tour page does not 404 on an unknown slug, it hangs
+// on a loading spinner forever, so a guessed slug would strand the user with no
+// error at all.
+func BuildTourSearchURL(result nlu.ParseResult) (string, error) {
+	if result.Intent != nlu.IntentTourSearch {
+		return "", fmt.Errorf("cannot build tour search URL: intent is %q, not %q", result.Intent, nlu.IntentTourSearch)
+	}
+	if result.Destination == nil {
+		return "", fmt.Errorf("cannot build tour search URL: destination must be resolved")
+	}
+	dest, ok := LookupTourDestination(result.Destination.Name)
+	if !ok {
+		return "", ErrTourDestUnsupported
+	}
+
+	return fmt.Sprintf(
+		"https://780.ir/tourism/tour/%s?type=%s&destinationName=%s",
+		dest.Slug, dest.Type, url.QueryEscape(result.Destination.Name),
+	), nil
+}
 
 // BuildFlightSearchURL builds a 780.ir flight search results URL from a
 // parse result. Callers should check that result.Missing is empty and

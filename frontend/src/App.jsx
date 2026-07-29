@@ -3,6 +3,7 @@ import { parseText, sendEvent } from './api.js'
 import { useSpeechRecognition, VOICE_UNAVAILABLE_CODES } from './useSpeechRecognition.js'
 import { useSpeechSynthesis } from './useSpeechSynthesis.js'
 import { addJalaliDays, buildHotelSearchUrl, lookupHotelCity } from './hotelCities.js'
+import { buildTourSearchUrl, lookupTourDestination } from './tourDestinations.js'
 import {
   buildBusSearchUrl,
   buildTrainSearchUrl,
@@ -21,6 +22,7 @@ import {
   SparkleIcon,
   SpeakerIcon,
   SpeakerOffIcon,
+  TourIcon,
   TrainIcon,
 } from './icons.jsx'
 import './App.css'
@@ -120,13 +122,18 @@ function mergeSlots(prev, result) {
 // Route intents (flight/train/bus) go origin→destination; hotel is a stay.
 const ROUTE_INTENTS = ['flight_search', 'international_flight_search', 'train_search', 'bus_search']
 
+// A slot counts as filled when it holds something meaningful. nights is a
+// number where 0 means "not given yet", so it can't share the null check.
+function hasSlot(slots, field) {
+  return field === 'nights' ? slots.nights > 0 : !!slots[field]
+}
+
 function computeMissing(slots) {
-  const missing = []
-  if (ROUTE_INTENTS.includes(slots.intent) && !slots.origin) missing.push('origin')
-  if (!slots.destination) missing.push('destination')
-  if (!slots.date) missing.push('date')
-  if (slots.intent === 'hotel_search' && !slots.nights) missing.push('nights')
-  // Only for a round trip the user actually asked for; silence means one-way.
+  const required = SERVICES[slots.intent]?.requires ?? []
+  const missing = required.filter((field) => !hasSlot(slots, field))
+  // Not in `requires` because it isn't a property of the service: the return
+  // leg is only expected once this particular user has asked to come back.
+  // Silence means one-way.
   if (slots.wantsReturn && !slots.returnDate) missing.push('returnDate')
   return missing
 }
@@ -137,6 +144,7 @@ function computeMissing(slots) {
 function buildSearchUrl(slots) {
   if (!slots) return null
   if (slots.intent === 'hotel_search') return buildHotelSearchUrl(slots)
+  if (slots.intent === 'tour_search') return buildTourSearchUrl(slots)
   if (slots.intent === 'train_search') return buildTrainSearchUrl(slots)
   if (slots.intent === 'bus_search') return buildBusSearchUrl(slots)
   if (slots.intent === 'international_flight_search') return buildIntlFlightSearchUrl(slots)
@@ -174,6 +182,8 @@ function buildIntlFlightSearchUrl(slots) {
 
 // Warm, PRD-toned Persian question covering all missing fields at once.
 function buildQuestion(missing, slots) {
+  // Destination is the only slot a tour can be missing, so one line covers it.
+  if (slots.intent === 'tour_search') return 'به کجا می‌خواید تور برید؟'
   return slots.intent === 'hotel_search'
     ? buildHotelQuestion(missing, slots)
     : buildRouteQuestion(missing, slots)
@@ -284,25 +294,64 @@ const SUGGESTIONS = [
   { label: 'بلیط قطار', text: 'بلیط قطار می‌خوام' },
   { label: 'بلیط اتوبوس', text: 'بلیط اتوبوس می‌خوام' },
   { label: 'رزرو هتل', text: 'رزرو هتل' },
+  { label: 'تور', text: 'تور می‌خوام' },
 ]
 
 // Shown (and spoken) on the help screen — a greeting or "what can you do?".
 const HELP_TEXT =
-  'من دستیار سفر هفت‌هشتادم. می‌تونم کمکت کنم بلیط پرواز داخلی و خارجی، قطار، اتوبوس یا هتل پیدا کنی — فقط کافیه بگی کجا و کِی. مثلاً بگو: بلیط تهران به مشهد برای فردا، یا پرواز تهران به استانبول.'
+  'من دستیار سفر هفت‌هشتادم. می‌تونم کمکت کنم بلیط پرواز داخلی و خارجی، قطار، اتوبوس، هتل یا تور پیدا کنی — فقط کافیه بگی کجا و کِی. مثلاً بگو: بلیط تهران به مشهد برای فردا، پرواز تهران به استانبول، یا تور کیش.'
 
 // Per-service labels/icons for the confirm card, spoken summary, and the
 // keyword we prefix onto clarification answers so bare replies still parse.
+//
+// `requires` lists the slots a service needs before it can search. It is data
+// rather than a chain of per-intent conditionals because the services genuinely
+// disagree: hotels have no origin but need nights, tours need neither an origin
+// nor a date. Three exceptions had already accumulated as `if`s in
+// computeMissing before this became a field.
 const SERVICES = {
-  flight_search: { title: 'جستجوی پرواز', speak: 'پرواز', keyword: 'بلیط', label: 'پرواز' },
+  flight_search: {
+    title: 'جستجوی پرواز',
+    speak: 'پرواز',
+    keyword: 'بلیط',
+    label: 'پرواز',
+    requires: ['origin', 'destination', 'date'],
+  },
   international_flight_search: {
     title: 'جستجوی پرواز خارجی',
     speak: 'پرواز خارجی',
     keyword: 'پرواز خارجی',
     label: 'پرواز خارجی',
+    requires: ['origin', 'destination', 'date'],
   },
-  train_search: { title: 'جستجوی قطار', speak: 'قطار', keyword: 'قطار', label: 'قطار' },
-  bus_search: { title: 'جستجوی اتوبوس', speak: 'اتوبوس', keyword: 'اتوبوس', label: 'اتوبوس' },
-  hotel_search: { title: 'جستجوی هتل', speak: 'هتل', keyword: 'هتل', label: 'هتل' },
+  train_search: {
+    title: 'جستجوی قطار',
+    speak: 'قطار',
+    keyword: 'قطار',
+    label: 'قطار',
+    requires: ['origin', 'destination', 'date'],
+  },
+  bus_search: {
+    title: 'جستجوی اتوبوس',
+    speak: 'اتوبوس',
+    keyword: 'اتوبوس',
+    label: 'اتوبوس',
+    requires: ['origin', 'destination', 'date'],
+  },
+  hotel_search: {
+    title: 'جستجوی هتل',
+    speak: 'هتل',
+    keyword: 'هتل',
+    label: 'هتل',
+    requires: ['destination', 'date', 'nights'],
+  },
+  tour_search: {
+    title: 'جستجوی تور',
+    speak: 'تور',
+    keyword: 'تور',
+    label: 'تور',
+    requires: ['destination'],
+  },
 }
 
 const TITLE_BY_PHASE = {
@@ -324,6 +373,10 @@ function buildConfirmSpeech(slots) {
     const nights = toPersianDigits(slots.nights)
     return `هتل در ${slots.destination.name}، ورود ${date}، ${nights} شب. درسته؟`
   }
+  // No date to read out: 780 filters tours by month on the results page.
+  if (slots.intent === 'tour_search') {
+    return `تور ${slots.destination.name}. درسته؟`
+  }
   const service = SERVICES[slots.intent]?.speak ?? 'سفر'
   const people = toPersianDigits(slots.adults ?? 1)
   const back = slots.returnDate ? ` و برگشت ${formatJalali(slots.returnDate)}` : ''
@@ -338,6 +391,9 @@ function findUnsupportedCity(slots) {
   const { intent, origin, destination } = slots
   if (intent === 'hotel_search') {
     return destination && !lookupHotelCity(destination.name) ? destination.name : null
+  }
+  if (intent === 'tour_search') {
+    return destination && !lookupTourDestination(destination.name) ? destination.name : null
   }
   // Route services: a city is supported if it has this service's slug (train/
   // bus) or a confirmed airport (flight — cities with no airport have iata "").
@@ -359,6 +415,7 @@ function ServiceIcon({ intent, className }) {
   if (intent === 'international_flight_search') return <GlobeIcon className={className} />
   if (intent === 'train_search') return <TrainIcon className={className} />
   if (intent === 'bus_search') return <BusIcon className={className} />
+  if (intent === 'tour_search') return <TourIcon className={className} />
   return <SparkleIcon className={className} />
 }
 
@@ -611,6 +668,9 @@ function App() {
   const showTextInput = !isSupported || useTextMode
   const searchUrl = buildSearchUrl(accumulatedSlots)
   const isHotel = accumulatedSlots?.intent === 'hotel_search'
+  const isTour = accumulatedSlots?.intent === 'tour_search'
+  // Only route services have an origin to show alongside the destination.
+  const isRoute = ROUTE_INTENTS.includes(accumulatedSlots?.intent)
   const service = SERVICES[accumulatedSlots?.intent]
   // A city we understood, but one 780.ir doesn't cover on this service (its
   // name, for the friendly message). null when everything is supported.
@@ -787,21 +847,25 @@ function App() {
             <div className="summary-row">
               <span className="summary-label">
                 <PinIcon className="icon" />
-                {isHotel ? 'مقصد' : 'مسیر'}
+                {isRoute ? 'مسیر' : 'مقصد'}
               </span>
               <span className="summary-value">
-                {isHotel
-                  ? accumulatedSlots.destination.name
-                  : `${accumulatedSlots.origin.name} ← ${accumulatedSlots.destination.name}`}
+                {isRoute
+                  ? `${accumulatedSlots.origin.name} ← ${accumulatedSlots.destination.name}`
+                  : accumulatedSlots.destination.name}
               </span>
             </div>
-            <div className="summary-row">
-              <span className="summary-label">
-                <CalendarIcon className="icon" />
-                {isHotel ? 'ورود' : 'تاریخ'}
-              </span>
-              <span className="summary-value">{formatJalali(accumulatedSlots.date)}</span>
-            </div>
+            {/* Tours carry no departure date — 780 filters them by month on
+                the results page — so the date row is skipped entirely. */}
+            {!isTour && (
+              <div className="summary-row">
+                <span className="summary-label">
+                  <CalendarIcon className="icon" />
+                  {isHotel ? 'ورود' : 'تاریخ'}
+                </span>
+                <span className="summary-value">{formatJalali(accumulatedSlots.date)}</span>
+              </div>
+            )}
             {isHotel && (
               <div className="summary-row">
                 <span className="summary-label">
@@ -825,7 +889,7 @@ function App() {
                 </span>
               </div>
             )}
-            {!isHotel && (
+            {!isHotel && !isTour && (
               <div className="summary-row">
                 <span className="summary-label">
                   <PassengersIcon className="icon" />

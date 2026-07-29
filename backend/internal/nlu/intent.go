@@ -11,6 +11,19 @@ var busKeywords = []string{"اتوبوس"}
 var flightKeywords = []string{"پرواز", "هواپیما"}
 var hotelKeywords = []string{"هتل", "اقامتگاه", "اتاق", "جا برای موندن"}
 
+// tourWordKeywords is matched as a whole word only: "تور" is a substring of
+// "دستور", "موتور", "کنسرتور" and plenty more.
+//
+// ⚠️ Accepted risk: even as a whole word, "تور" has non-travel senses — a
+// volleyball net ("تور والیبال"), a bridal veil ("تور عروس"), a fishing net
+// ("تور ماهیگیری"). Those parse as tour searches. This is the same trade-off
+// already accepted for the bare-city fallback: the user knows they are talking
+// to a travel assistant, so a sentence containing "تور" is nearly always about
+// travel. Revisit if the product ever answers general questions. In practice
+// the damage is bounded — with no known destination the assistant just asks
+// "کدوم مقصد؟" rather than doing anything wrong.
+var tourWordKeywords = []string{"تور"}
+
 // Short/risky keywords matched as whole words only: "ترن" is a substring of
 // "اینترنت" and "بوس" of "اتوبوس"/"بوسه", so a plain substring search would
 // misfire (same lesson as "به" inside "پنجشنبه").
@@ -34,6 +47,7 @@ func detectIntent(text string) Intent {
 	busIdx := minIndex(firstKeywordIndex(text, busKeywords), firstWholeWordIndex(text, busWordKeywords))
 	flightIdx := firstKeywordIndex(text, flightKeywords)
 	hotelIdx := firstKeywordIndex(text, hotelKeywords)
+	tourIdx := firstWholeWordIndex(text, tourWordKeywords)
 
 	best, bestIdx := IntentUnknown, -1
 	for _, c := range []struct {
@@ -44,6 +58,7 @@ func detectIntent(text string) Intent {
 		{IntentBusSearch, busIdx},
 		{IntentFlightSearch, flightIdx},
 		{IntentHotelSearch, hotelIdx},
+		{IntentTourSearch, tourIdx},
 	} {
 		if c.idx != -1 && (bestIdx == -1 || c.idx < bestIdx) {
 			best, bestIdx = c.intent, c.idx

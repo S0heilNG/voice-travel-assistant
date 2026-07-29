@@ -7,14 +7,14 @@ func TestDetectUnsupportedService(t *testing.T) {
 		text string
 		want string
 	}{
-		{"یه تور کیش می‌خوام", "tour"},
-		{"تور استانبول", "tour"},
 		{"ویلا شمال می‌خوام", "villa"},
 		{"اقامتگاه بوم گردی", "villa"},
-		// International flights became a supported service, so they must no
-		// longer be reported as unmet demand.
+		// International flights and tours each became a supported service, so
+		// neither may be reported as unmet demand any more.
 		{"پرواز خارجی به استانبول", ""},
 		{"بلیط بین المللی", ""},
+		{"یه تور کیش می‌خوام", ""},
+		{"تور استانبول", ""},
 		// Negatives: supported requests must return "".
 		{"بلیط تهران به مشهد فردا", ""},
 		{"اتوبوس تهران به ایلام", ""},
@@ -43,6 +43,7 @@ func TestUnsupportedDetectionDoesNotStealServices(t *testing.T) {
 		{"اتوبوس تهران به ایلام", IntentBusSearch},
 		{"قطار تهران به قم", IntentTrainSearch},
 		{"هتل مشهد", IntentHotelSearch},
+		{"تور کیش", IntentTourSearch},
 		{"سلام", IntentHelp},
 	}
 	for _, tc := range tests {

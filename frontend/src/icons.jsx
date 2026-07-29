@@ -151,6 +151,20 @@ export function GlobeIcon({ className }) {
   )
 }
 
+// A packaged trip: a suitcase with a handle. Same 20x20 grid, currentColor and
+// 1.8 stroke as the other service icons.
+export function TourIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.5" y="6.5" width="15" height="10.5" rx="2" />
+        <path d="M7.5 6.5V4.6a1.4 1.4 0 0 1 1.4-1.4h2.2a1.4 1.4 0 0 1 1.4 1.4v1.9" />
+        <line x1="2.5" y1="10.5" x2="17.5" y2="10.5" />
+      </g>
+    </svg>
+  )
+}
+
 export function ExternalLinkIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 16 18" fill="none" aria-hidden="true">

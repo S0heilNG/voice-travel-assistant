@@ -280,3 +280,46 @@ func TestInternationalURLFromParse(t *testing.T) {
 		t.Errorf("expected one-way tripMode in %s", got)
 	}
 }
+
+func TestBuildTourSearchURL(t *testing.T) {
+	tour := func(name string) nlu.ParseResult {
+		return nlu.ParseResult{
+			Intent:      nlu.IntentTourSearch,
+			Destination: &nlu.City{Name: name},
+			Adults:      1,
+		}
+	}
+
+	got, err := BuildTourSearchURL(tour("کیش"))
+	if err != nil {
+		t.Fatalf("domestic tour: %v", err)
+	}
+	want := "https://780.ir/tourism/tour/kish?type=DOMESTIC&destinationName=%DA%A9%DB%8C%D8%B4"
+	if got != want {
+		t.Errorf("domestic tour URL:\n got %s\nwant %s", got, want)
+	}
+
+	got, err = BuildTourSearchURL(tour("استانبول"))
+	if err != nil {
+		t.Fatalf("international tour: %v", err)
+	}
+	if !strings.Contains(got, "/tour/istanbul?type=INTERNATIONAL") {
+		t.Errorf("international tour URL = %s, want istanbul + INTERNATIONAL", got)
+	}
+
+	// A city we know but 780 sells no tour to must be reported, never guessed.
+	if _, err := BuildTourSearchURL(tour("تهران")); !errors.Is(err, ErrTourDestUnsupported) {
+		t.Errorf("tour to تهران: err = %v, want ErrTourDestUnsupported", err)
+	}
+}
+
+// The NLU vocabulary and the URL table must agree: anything the parser can
+// resolve as a tour destination has to have a slug, or the user is told a tour
+// exists and then gets no link.
+func TestTourTablesAgree(t *testing.T) {
+	for name := range tourDestinations {
+		if !nlu.IsTourDestinationName(name) {
+			t.Errorf("tour destination %q has a slug but the NLU cannot resolve it", name)
+		}
+	}
+}

@@ -81,6 +81,14 @@ func (a *api) parseText(c *fiber.Ctx) error {
 			case errors.Is(err, searchurl.ErrHotelCityUnsupported):
 				citySupported = false
 			}
+		case nlu.IntentTourSearch:
+			u, err := searchurl.BuildTourSearchURL(result)
+			switch {
+			case err == nil:
+				searchURL = u
+			case errors.Is(err, searchurl.ErrTourDestUnsupported):
+				citySupported = false
+			}
 		case nlu.IntentTrainSearch:
 			u, err := searchurl.BuildTrainSearchURL(result)
 			switch {
