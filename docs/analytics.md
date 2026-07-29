@@ -72,7 +72,7 @@
 `clarification_shown` (detail=فیلدهای کم) · `clarification_answered` ·
 `confirm_shown` · `search_clicked` (مهم‌ترین رویداد موفقیت) · `correction_clicked` ·
 `new_search` · `error_shown` (detail=نوع) · `help_shown` · `voice_error`
-(detail=کد خام Web Speech) · `cta_shown` · `cta_clicked`.
+(detail=کد خام Web Speech) · `cta_shown` · `cta_clicked` · `service_switched`.
 
 **رویدادهای CTA (نجات از بن‌بست):** وقتی درخواستی را نمی‌توانیم انجام دهیم،
 به‌جای پیام خشک، گزینه‌های جایگزین نشان داده می‌شود. این دو رویداد می‌گویند آیا
@@ -85,6 +85,11 @@
 
 نسبت `cta_clicked` به `cta_shown` همان چیزی است که می‌گوید کاربر از بن‌بست نجات
 پیدا کرد یا رها کرد.
+
+**`service_switched`** — detail = `<سرویس قبلی>-><سرویس جدید>`. وقتی کاربر وسط یک
+جریان، سرویس دیگری را صریحاً نام می‌برد ثبت می‌شود. نشان می‌دهد کاربران واقعاً بین
+چه سرویس‌هایی جابه‌جا می‌شوند — مثلاً اگر «هتل → قطار» زیاد باشد یعنی مردم اول جای
+اقامت را می‌بینند و بعد راه رسیدن.
 
 ## چطور کوئری بزنیم
 
@@ -153,6 +158,11 @@ SELECT COUNT(*) AS rescued FROM (
   INTERSECT
   SELECT session_id FROM events WHERE type='search_clicked'
 );
+
+-- ۶و) کاربران بین کدام سرویس‌ها جابه‌جا می‌شوند
+SELECT detail AS switch, COUNT(*) n FROM events
+WHERE type='service_switched'
+GROUP BY detail ORDER BY n DESC;
 
 -- ۶) توزیع خطاهای صوتی بر اساس کد خام (برای فهمیدن مشکل iOS با داده‌ی واقعی)
 SELECT detail AS webspeech_code, COUNT(*) n FROM events

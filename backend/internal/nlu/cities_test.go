@@ -57,7 +57,7 @@ func TestFindCitiesWholeWord(t *testing.T) {
 
 // The added cities must still parse into full route results.
 func TestParseNewCityRoutes(t *testing.T) {
-	got := parse("اتوبوس تهران به ایلام فردا", hotelNow)
+	got := parse("اتوبوس تهران به ایلام فردا", "", hotelNow)
 	if got.Intent != IntentBusSearch {
 		t.Errorf("intent = %q, want bus_search", got.Intent)
 	}

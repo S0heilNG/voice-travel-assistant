@@ -13,6 +13,19 @@ import (
 
 type parseRequest struct {
 	Text string `json:"text"`
+	// ContextIntent is what the conversation was about before this utterance,
+	// so a bare reply ("فردا") can be understood by a stateless parser. It is
+	// only a default: text that names a service outright switches to it, and
+	// the response's Intent is what actually happened.
+	ContextIntent nlu.Intent `json:"contextIntent"`
+	// ContextOrigin/ContextDestination are the cities already established in
+	// the conversation, by canonical name. They exist so that switching
+	// service can be checked against the city the user already gave: "قطار" on
+	// its own names no city, but if the flow was about کیش we must answer that
+	// Kish has no train rather than asking for a date first. Slot merging
+	// stays in the client; these are only used to answer that question.
+	ContextOrigin      string `json:"contextOrigin"`
+	ContextDestination string `json:"contextDestination"`
 }
 
 type parseResponse struct {
@@ -56,7 +69,7 @@ func (a *api) parseText(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "\"text\" must not be empty"})
 	}
 
-	result := nlu.Parse(req.Text)
+	result := nlu.ParseWithContext(req.Text, req.ContextIntent)
 
 	missing := result.Missing
 	if missing == nil {
@@ -123,7 +136,7 @@ func (a *api) parseText(c *fiber.Ctx) error {
 	// city is actually resolved; which endpoint to describe depends on which
 	// one failed, and for route services the origin is the culprit as often as
 	// the destination.
-	alternatives := alternativesFor(result)
+	alternatives := alternativesFor(withContextCities(result, req))
 
 	// Villas/ecolodges are the one dead end that isn't about a city. Reported
 	// separately from Intent so it can be explained without ever overriding a
@@ -162,6 +175,24 @@ func (a *api) parseText(c *fiber.Ctx) error {
 		Alternatives:       alternatives,
 		UnsupportedService: unsupportedService,
 	})
+}
+
+// withContextCities fills in cities this utterance didn't name from the ones
+// the conversation already established.
+//
+// It is used ONLY to decide whether to offer alternatives, never to build a
+// search URL or to answer the client — slot merging belongs to the client,
+// which owns the conversation state. Without it, switching service on a bare
+// "قطار" would look city-less and we'd ask for a date before discovering the
+// carried-over city has no train.
+func withContextCities(result nlu.ParseResult, req parseRequest) nlu.ParseResult {
+	if result.Origin == nil {
+		result.Origin = nlu.LookupCity(req.ContextOrigin)
+	}
+	if result.Destination == nil {
+		result.Destination = nlu.LookupCity(req.ContextDestination)
+	}
+	return result
 }
 
 // alternativesFor returns the other services that could search this request's

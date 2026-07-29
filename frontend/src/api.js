@@ -17,11 +17,21 @@ function headers() {
   }
 }
 
-export async function parseText(text) {
+// `context` is what the conversation has established so far: the running
+// service, and the cities already named. The backend uses the intent to
+// understand bare replies ("فردا") — text that names a service outright still
+// switches to it, so it is a default, not a lock — and the cities to tell us
+// straight away when a switch lands on a city the new service can't serve.
+export async function parseText(text, context = {}) {
   const response = await fetch(`${API_BASE}/api/parse`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({
+      text,
+      contextIntent: context.intent ?? '',
+      contextOrigin: context.origin ?? '',
+      contextDestination: context.destination ?? '',
+    }),
   })
 
   if (!response.ok) {

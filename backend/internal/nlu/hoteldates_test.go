@@ -130,7 +130,7 @@ func TestParseHotelNightsIntegration(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := parse(tc.in, hotelNow)
+			got := parse(tc.in, "", hotelNow)
 			if got.Intent != IntentHotelSearch {
 				t.Fatalf("intent = %q, want hotel_search", got.Intent)
 			}

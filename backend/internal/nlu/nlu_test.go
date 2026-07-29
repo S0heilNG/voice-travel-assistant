@@ -177,7 +177,7 @@ func TestParse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parse(tt.text, fixedNow)
+			got := parse(tt.text, "", fixedNow)
 
 			if got.Intent != tt.wantIntent {
 				t.Errorf("Intent = %v, want %v", got.Intent, tt.wantIntent)
@@ -385,7 +385,7 @@ func TestParseRealisticSentences(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parse(tt.text, fixedNow)
+			got := parse(tt.text, "", fixedNow)
 
 			if got.Intent != tt.wantIntent {
 				t.Errorf("Intent = %v, want %v", got.Intent, tt.wantIntent)

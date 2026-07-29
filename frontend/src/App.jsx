@@ -111,6 +111,27 @@ function mergeSlots(prev, result) {
   // Each utterance is parsed on its own, so a bare "۲۲ مرداد" answering "when
   // do you come back?" arrives as a *departure* date. When the return leg is
   // the only date still missing, that is what it means.
+  // The user named a different service. Precedence inverts: this utterance is
+  // a fresh request, so its values win and the earlier ones only fill gaps —
+  // the opposite of an answer, where what we already had is the truth.
+  //
+  // Only origin/destination/date carry over. nights and returnDate are
+  // service-specific (a hotel's 3 nights means nothing to a train, and a
+  // return leg belongs to the flight that had one), so carrying them would
+  // silently attach stale values to the new search.
+  if (result.intent !== prev.intent) {
+    return {
+      intent: result.intent,
+      origin: result.origin ?? prev.origin,
+      destination: result.destination ?? prev.destination,
+      date: result.date ?? prev.date,
+      returnDate: result.returnDate ?? null,
+      wantsReturn: askedForReturn,
+      nights: result.nights,
+      adults: result.adults,
+    }
+  }
+
   const answeringReturn = prev.wantsReturn && !prev.returnDate && !!prev.date
   const returnDate =
     prev.returnDate ?? result.returnDate ?? (answeringReturn ? result.date : null)
@@ -413,8 +434,13 @@ const SUGGESTIONS = [
 const HELP_TEXT =
   'من دستیار سفر هفت‌هشتادم. می‌تونم کمکت کنم بلیط پرواز داخلی و خارجی، قطار، اتوبوس، هتل یا تور پیدا کنی — فقط کافیه بگی کجا و کِی. مثلاً بگو: بلیط تهران به مشهد برای فردا، پرواز تهران به استانبول، یا تور کیش.'
 
-// Per-service labels/icons for the confirm card, spoken summary, and the
-// keyword we prefix onto clarification answers so bare replies still parse.
+// Per-service labels/icons for the confirm card and the spoken summary.
+//
+// `keyword` is the natural Persian word for the service, used to build a
+// ready-made utterance for a quick-start chip. It is no longer prefixed onto
+// clarification answers — the backend now takes the running intent as an
+// explicit `contextIntent`, because prefixing made switching services
+// impossible (the injected keyword always won the earliest-keyword contest).
 //
 // `requires` lists the slots a service needs before it can search. It is data
 // rather than a chain of per-intent conditionals because the services genuinely
@@ -600,18 +626,23 @@ function App() {
     setLastTranscript(trimmed)
     dispatch({ type: 'PROCESSING' })
 
-    // Mid-conversation answers are prefixed with the intent keyword so bare
-    // replies ("فردا", "پنجشنبه") still trigger intent + date/city extraction
-    // in the stateless, single-sentence backend parser.
+    // The running service is sent as context so the stateless backend can
+    // understand bare replies ("فردا"). It used to be injected by prefixing
+    // the service keyword onto the text, which quietly made switching services
+    // impossible — "قطار تهران به مشهد" became "هتل قطار تهران به مشهد", and
+    // the earliest keyword wins.
     const inConversation = accumulatedSlots !== null
-    const keyword = SERVICES[accumulatedSlots?.intent]?.keyword ?? 'بلیط'
-    const textToParse = inConversation ? `${keyword} ${trimmed}` : trimmed
+    const context = {
+      intent: accumulatedSlots?.intent ?? '',
+      origin: accumulatedSlots?.origin?.name ?? '',
+      destination: accumulatedSlots?.destination?.name ?? '',
+    }
 
     try {
       // Run the request and the minimum-spinner delay together so the floor
       // never stacks on top of a slow response.
       const [data] = await Promise.all([
-        parseText(textToParse),
+        parseText(trimmed, context),
         new Promise((resolve) => setTimeout(resolve, MIN_THINKING_MS)),
       ])
 
@@ -640,10 +671,15 @@ function App() {
       }
 
       const merged = mergeSlots(accumulatedSlots, data)
+      const switched = inConversation && data.intent !== accumulatedSlots.intent
+      if (switched) {
+        sendEvent('service_switched', `${accumulatedSlots.intent}->${data.intent}`)
+      }
 
       // A city this service can't serve. The backend flags it as soon as the
       // city is recognized, so we can offer alternatives now instead of first
-      // asking for an origin and a date we'd then have to throw away.
+      // asking for an origin and a date we'd then have to throw away. This
+      // also covers switching to a service the carried-over city lacks.
       if (data.alternatives?.length) {
         setAccumulatedSlots(merged)
         showDeadEnd(buildCityDeadEnd(merged, data.alternatives))
@@ -652,8 +688,9 @@ function App() {
 
       // An answer that filled nothing is a place (or date) we didn't
       // understand. Without this the same question would just be asked again,
-      // which is the loop the CTA work exists to remove.
-      if (inConversation && slotsUnchanged(accumulatedSlots, merged)) {
+      // which is the loop the CTA work exists to remove. A switch is exempt:
+      // "هتل" on its own fills no slot but is a perfectly clear instruction.
+      if (inConversation && !switched && slotsUnchanged(accumulatedSlots, merged)) {
         showDeadEnd(buildUnknownPlaceDeadEnd(merged))
         return
       }
@@ -666,7 +703,15 @@ function App() {
         dispatch({ type: 'CONFIRM' })
       } else {
         sendEvent('clarification_shown', missing.join(','))
-        dispatch({ type: 'CLARIFY', question: buildQuestion(missing, merged) })
+        dispatch({
+          type: 'CLARIFY',
+          // Naming the new service in the question is the acknowledgement:
+          // it confirms the switch landed without spending a turn on a
+          // separate "ok, switching to trains" message.
+          question: switched
+            ? `باشه، بریم سراغ ${SERVICES[merged.intent]?.speak ?? 'این سرویس'}. ${buildQuestion(missing, merged)}`
+            : buildQuestion(missing, merged),
+        })
       }
     } catch (err) {
       sendEvent('error_shown', 'network')

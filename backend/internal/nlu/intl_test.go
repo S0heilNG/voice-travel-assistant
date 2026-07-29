@@ -40,7 +40,7 @@ func TestInternationalIntentFromCity(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := parse(tc.text, fixedNow)
+			got := parse(tc.text, "", fixedNow)
 			if got.Intent != tc.wantIntent {
 				t.Fatalf("intent = %q, want %q", got.Intent, tc.wantIntent)
 			}
@@ -57,7 +57,7 @@ func TestInternationalIntentFromCity(t *testing.T) {
 func TestInternationalIntentFromKeyword(t *testing.T) {
 	// An explicit keyword must work before any city is known, so the user is
 	// asked for a route instead of being dropped into the domestic search.
-	got := parse("پرواز خارجی می‌خوام", fixedNow)
+	got := parse("پرواز خارجی می‌خوام", "", fixedNow)
 	if got.Intent != IntentIntlFlightSearch {
 		t.Fatalf("intent = %q, want %q", got.Intent, IntentIntlFlightSearch)
 	}
@@ -68,7 +68,7 @@ func TestInternationalIntentFromKeyword(t *testing.T) {
 
 func TestRoundTrip(t *testing.T) {
 	t.Run("date range yields a return date", func(t *testing.T) {
-		got := parse("پرواز تهران به استانبول از 15 مرداد تا 22 مرداد", fixedNow)
+		got := parse("پرواز تهران به استانبول از 15 مرداد تا 22 مرداد", "", fixedNow)
 		if got.Intent != IntentIntlFlightSearch {
 			t.Fatalf("intent = %q", got.Intent)
 		}
@@ -81,7 +81,7 @@ func TestRoundTrip(t *testing.T) {
 	})
 
 	t.Run("one-way when no return is mentioned", func(t *testing.T) {
-		got := parse("بلیط تهران به استانبول برای 15 مرداد", fixedNow)
+		got := parse("بلیط تهران به استانبول برای 15 مرداد", "", fixedNow)
 		if got.ReturnDate != nil {
 			t.Errorf("return = %v, want nil (one-way)", got.ReturnDate)
 		}
@@ -93,7 +93,7 @@ func TestRoundTrip(t *testing.T) {
 	})
 
 	t.Run("asks for a return date when round trip is requested without one", func(t *testing.T) {
-		got := parse("بلیط رفت و برگشت تهران به استانبول برای 15 مرداد", fixedNow)
+		got := parse("بلیط رفت و برگشت تهران به استانبول برای 15 مرداد", "", fixedNow)
 		found := false
 		for _, m := range got.Missing {
 			if m == "returnDate" {
@@ -123,7 +123,7 @@ func TestAmbiguousWordsAreNotCities(t *testing.T) {
 	}
 	for _, text := range tests {
 		t.Run(text, func(t *testing.T) {
-			got := parse(text, fixedNow)
+			got := parse(text, "", fixedNow)
 			if got.Intent == IntentIntlFlightSearch {
 				t.Errorf("parsed as international flight; origin=%v destination=%v", got.Origin, got.Destination)
 			}

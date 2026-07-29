@@ -57,14 +57,38 @@ type ParseResult struct {
 
 // Parse extracts intent and entities from raw Persian text.
 func Parse(text string) ParseResult {
-	return parse(text, time.Now())
+	return parse(text, "", time.Now())
+}
+
+// ParseWithContext parses a reply that arrives mid-conversation.
+//
+// The parser is stateless, so a bare "فردا" carries no intent of its own and
+// context has to be supplied. contextIntent is what the conversation was about
+// so far; it is used ONLY when the new text names no service itself. If the
+// text does name one ("قطار تهران به مشهد"), that wins and the caller sees the
+// intent change — that is a deliberate service switch, not a stray match.
+//
+// The context is passed as a parameter rather than by the client prefixing the
+// service keyword onto the text, which is how this used to work. Prefixing
+// actively prevented switching: "قطار تهران به مشهد" sent mid-hotel-flow
+// became "هتل قطار تهران به مشهد", and since the mode is chosen by the
+// EARLIEST keyword, the injected "هتل" always won.
+func ParseWithContext(text string, contextIntent Intent) ParseResult {
+	return parse(text, contextIntent, time.Now())
 }
 
 // parse is the testable core of Parse — it takes `now` explicitly so tests
 // get deterministic date results instead of depending on the real clock.
-func parse(text string, now time.Time) ParseResult {
+func parse(text string, contextIntent Intent, now time.Time) ParseResult {
 	normalized := Normalize(text)
 	intent := detectIntent(normalized)
+
+	// Continuation of an existing conversation: keep the running intent unless
+	// this utterance explicitly asks for a different service.
+	if contextIntent != "" && contextIntent != IntentHelp && contextIntent != IntentUnknown &&
+		!hasExplicitServiceKeyword(normalized) {
+		intent = contextIntent
+	}
 
 	result := ParseResult{
 		Intent:  intent,

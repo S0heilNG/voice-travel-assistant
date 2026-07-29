@@ -32,6 +32,25 @@ var busWordKeywords = []string{"بوس"}
 
 var ticketKeywords = []string{"بلیط", "بلیت"}
 
+// hasExplicitServiceKeyword reports whether the text names a service outright.
+//
+// This is what may switch services mid-conversation. "بلیط" is deliberately
+// NOT one of them: it is generic ("بلیط فردا" is an answer, not a new
+// request), and treating it as a switch would derail ordinary replies. That
+// matches how detectIntent already ranks things — specific keywords decide the
+// mode, a bare ticket word is only a last-resort fallback.
+func hasExplicitServiceKeyword(text string) bool {
+	return firstKeywordIndex(text, trainKeywords) != -1 ||
+		firstWholeWordIndex(text, trainWordKeywords) != -1 ||
+		firstKeywordIndex(text, busKeywords) != -1 ||
+		firstWholeWordIndex(text, busWordKeywords) != -1 ||
+		firstKeywordIndex(text, flightKeywords) != -1 ||
+		firstKeywordIndex(text, hotelKeywords) != -1 ||
+		firstWholeWordIndex(text, tourWordKeywords) != -1 ||
+		firstWholeWordIndex(text, internationalWordKeywords) != -1 ||
+		firstKeywordIndex(text, internationalPhraseKeywords) != -1
+}
+
 // detectIntent classifies normalized text into one of the search modes.
 //
 // The mode is chosen by the earliest *specific* mode keyword in the sentence
