@@ -21,7 +21,7 @@
 | `ts` | زمان (UTC, RFC3339) |
 | `session_id` | شناسه‌ی تصادفی نشست |
 | `raw_text` | متن خام کاربر (حداکثر ۵۰۰ کاراکتر) |
-| `intent` | intent تشخیص‌داده‌شده (flight/train/bus/hotel/help/unknown) |
+| `intent` | intent تشخیص‌داده‌شده (پرواز داخلی/خارجی، قطار، اتوبوس، هتل، تور، help، unknown) |
 | `origin`, `destination` | نام فارسی شهرها (اگر استخراج شد) |
 | `date`, `nights` | تاریخ شمسی و تعداد شب (هتل) |
 | `missing` | فیلدهای کم (comma-separated) |
@@ -30,8 +30,8 @@
 | `category` | دسته‌بندی خودکار (پایین را ببینید) |
 | `category_detail` | جزئیات دسته (مثلاً سرویس ناموجود، فیلدهای کم) |
 
-**دسته‌بندی‌ها (`category`):** `unsupported_service` (سرویسی که نداریم: تور/پرواز
-خارجی/ویلا) · `unsupported_city_for_service` (شهر را می‌شناسیم ولی سرویس ندارد) ·
+**دسته‌بندی‌ها (`category`):** `unsupported_service` (سرویسی که نداریم — حالا فقط
+ویلا/بوم‌گردی؛ تور و پرواز خارجی از این دسته درآمدند چون پشتیبانی می‌شوند) · `unsupported_city_for_service` (شهر را می‌شناسیم ولی سرویس ندارد) ·
 `incomplete` (فیلد کم داشت) · `unknown_intent` (اصلاً نفهمید) · `help` (احوال‌پرسی/
 راهنما) · خالی = این جمله به‌تنهایی کامل بود. **متن خام همیشه ذخیره می‌شود، حتی وقتی
 دسته‌بندی شد.**
@@ -72,7 +72,19 @@
 `clarification_shown` (detail=فیلدهای کم) · `clarification_answered` ·
 `confirm_shown` · `search_clicked` (مهم‌ترین رویداد موفقیت) · `correction_clicked` ·
 `new_search` · `error_shown` (detail=نوع) · `help_shown` · `voice_error`
-(detail=کد خام Web Speech).
+(detail=کد خام Web Speech) · `cta_shown` · `cta_clicked`.
+
+**رویدادهای CTA (نجات از بن‌بست):** وقتی درخواستی را نمی‌توانیم انجام دهیم،
+به‌جای پیام خشک، گزینه‌های جایگزین نشان داده می‌شود. این دو رویداد می‌گویند آیا
+آن گزینه‌ها واقعاً کار می‌کنند:
+
+- `cta_shown` — detail = `<نوع سناریو>:<جزئیات>`. نوع‌ها: `city_unsupported`
+  (جزئیات = `<سرویس درخواستی>-><جایگزین‌های پیشنهادی>`) · `unsupported_service`
+  (جزئیات = `villa`) · `unknown_place` (جزئیات = intent) · `unknown_intent`.
+- `cta_clicked` — detail = `<نوع سناریو>:<گزینه‌ی انتخاب‌شده>`.
+
+نسبت `cta_clicked` به `cta_shown` همان چیزی است که می‌گوید کاربر از بن‌بست نجات
+پیدا کرد یا رها کرد.
 
 ## چطور کوئری بزنیم
 
@@ -95,7 +107,7 @@ SELECT intent AS service, destination AS city, COUNT(*) n FROM parses
 WHERE category='unsupported_city_for_service'
 GROUP BY intent, destination ORDER BY n DESC;
 
--- ۳) سرویس‌های ناموجودی که کاربران خواستند (تور، پرواز خارجی، ویلا)
+-- ۳) سرویس‌های ناموجودی که کاربران خواستند (فعلاً فقط ویلا/بوم‌گردی)
 SELECT category_detail AS service, COUNT(*) n FROM parses
 WHERE category='unsupported_service'
 GROUP BY category_detail ORDER BY n DESC;
@@ -116,6 +128,31 @@ SELECT COUNT(*) AS abandoned_after_confirm FROM (
 SELECT detail AS missing_fields, COUNT(*) n FROM events
 WHERE type='clarification_shown'
 GROUP BY detail ORDER BY n DESC;
+
+-- ۶ب) نرخ نجات از بن‌بست: چند بار گزینه نشان دادیم و چند بار کلیک شد
+SELECT
+  (SELECT COUNT(*) FROM events WHERE type='cta_shown')   AS shown,
+  (SELECT COUNT(*) FROM events WHERE type='cta_clicked') AS clicked;
+
+-- ۶ج) کدام بن‌بست‌ها بیشتر پیش می‌آیند و کدام‌شان نجات پیدا می‌کنند
+SELECT
+  substr(detail, 1, instr(detail || ':', ':') - 1) AS scenario,
+  SUM(type='cta_shown')   AS shown,
+  SUM(type='cta_clicked') AS clicked
+FROM events WHERE type IN ('cta_shown','cta_clicked')
+GROUP BY scenario ORDER BY shown DESC;
+
+-- ۶د) وقتی شهری سرویس درخواستی را ندارد، کاربران کدام جایگزین را می‌گیرند
+SELECT detail, COUNT(*) n FROM events
+WHERE type='cta_clicked' AND detail LIKE 'city_unsupported:%'
+GROUP BY detail ORDER BY n DESC;
+
+-- ۶ه) نشست‌هایی که بن‌بست دیدند و در نهایت جستجو کردند (نجات کامل)
+SELECT COUNT(*) AS rescued FROM (
+  SELECT session_id FROM events WHERE type='cta_clicked'
+  INTERSECT
+  SELECT session_id FROM events WHERE type='search_clicked'
+);
 
 -- ۶) توزیع خطاهای صوتی بر اساس کد خام (برای فهمیدن مشکل iOS با داده‌ی واقعی)
 SELECT detail AS webspeech_code, COUNT(*) n FROM events

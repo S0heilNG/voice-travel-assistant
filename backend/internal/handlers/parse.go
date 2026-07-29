@@ -34,6 +34,17 @@ type parseResponse struct {
 	// any request that isn't complete yet. (Renamed from hotelCitySupported now
 	// that train and bus can also hit an unsupported city.)
 	CitySupported bool `json:"citySupported"`
+	// Alternatives lists the services 780.ir *can* search for this city when
+	// the requested one can't be. It exists so a dead end can offer a way
+	// onward instead of just refusing. Computed server-side because only the
+	// backend holds every per-service table — duplicating them client-side
+	// would be one more thing to drift.
+	Alternatives []nlu.Intent `json:"alternatives"`
+	// UnsupportedService names a product 780.ir has no standalone version of
+	// (currently only villas/ecolodges). It does not affect Intent — a valid
+	// request must never be stolen — but the client needs it to explain the one
+	// dead end that isn't about a city.
+	UnsupportedService string `json:"unsupportedService"`
 }
 
 func (a *api) parseText(c *fiber.Ctx) error {
@@ -108,6 +119,17 @@ func (a *api) parseText(c *fiber.Ctx) error {
 		}
 	}
 
+	// What else could this city be searched for? Only worth answering once a
+	// city is actually resolved; which endpoint to describe depends on which
+	// one failed, and for route services the origin is the culprit as often as
+	// the destination.
+	alternatives := alternativesFor(result)
+
+	// Villas/ecolodges are the one dead end that isn't about a city. Reported
+	// separately from Intent so it can be explained without ever overriding a
+	// request we can actually serve.
+	unsupportedService := nlu.DetectUnsupportedService(req.Text)
+
 	// Record the interaction (no-op if logging is disabled; never fails the
 	// request). Categorized so we can group the "couldn't help" cases.
 	category, detail := categorize(req.Text, result, citySupported)
@@ -127,17 +149,40 @@ func (a *api) parseText(c *fiber.Ctx) error {
 	})
 
 	return c.JSON(parseResponse{
-		Intent:        result.Intent,
-		Origin:        result.Origin,
-		Destination:   result.Destination,
-		Date:          result.Date,
-		ReturnDate:    result.ReturnDate,
-		Nights:        result.Nights,
-		Adults:        result.Adults,
-		Missing:       missing,
-		SearchURL:     searchURL,
-		CitySupported: citySupported,
+		Intent:             result.Intent,
+		Origin:             result.Origin,
+		Destination:        result.Destination,
+		Date:               result.Date,
+		ReturnDate:         result.ReturnDate,
+		Nights:             result.Nights,
+		Adults:             result.Adults,
+		Missing:            missing,
+		SearchURL:          searchURL,
+		CitySupported:      citySupported,
+		Alternatives:       alternatives,
+		UnsupportedService: unsupportedService,
 	})
+}
+
+// alternativesFor returns the other services that could search this request's
+// city, or nil when there's nothing to offer.
+//
+// It deliberately does NOT wait for the request to be complete. A city that
+// this service can't serve is a dead end the moment we recognize it, and
+// telling the user immediately is the whole point — asking "from where?" first
+// and only then refusing wastes the turn we were trying to save.
+//
+// For route services either end can be the culprit, so both are checked.
+func alternativesFor(result nlu.ParseResult) []nlu.Intent {
+	for _, c := range []*nlu.City{result.Destination, result.Origin} {
+		if c == nil || searchurl.CitySupportedFor(result.Intent, *c) {
+			continue
+		}
+		if alts := searchurl.AlternativeServices(*c, result.Intent); len(alts) > 0 {
+			return alts
+		}
+	}
+	return nil
 }
 
 func cityName(c *nlu.City) string {

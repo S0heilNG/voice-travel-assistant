@@ -653,3 +653,46 @@
   color: var(--c-text-6);
   text-align: center;
 }
+
+/* ---------- Dead ends ---------- */
+
+/* A dead end always offers a way on, so it is laid out like a choice, not
+   like an error: the explanation sits above a row of real actions. */
+.deadend-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  align-items: stretch;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  justify-content: center;
+}
+
+/* Heavier than .suggestion: these are the primary action on the screen, not
+   an idle-state hint. */
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-pill);
+  color: var(--c-text-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding: 10px 18px;
+  transition: background 0.15s ease;
+}
+
+.cta-button:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.cta-button .icon {
+  width: 18px;
+  height: 18px;
+}

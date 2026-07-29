@@ -39,8 +39,19 @@ const GRACE_MS = 1300
 const MIN_THINKING_MS = 1000
 
 // Phases: idle → listening → settling → processing → (clarifying ↔ listening)
-//         → confirming → redirecting, plus error.
-const initialState = { phase: 'idle', question: '', error: null, notice: '', heardText: '' }
+//         → confirming → redirecting, plus error and deadend.
+//
+// `deadend` is where a request we can't serve lands. It is a distinct phase
+// rather than an error because it is never empty-handed: it always carries at
+// least one clickable way back into the conversation.
+const initialState = {
+  phase: 'idle',
+  question: '',
+  error: null,
+  notice: '',
+  heardText: '',
+  deadEnd: null,
+}
 
 function reducer(state, action) {
   switch (action.type) {
@@ -60,6 +71,8 @@ function reducer(state, action) {
       return { ...state, phase: 'redirecting', error: null }
     case 'ERROR':
       return { ...state, phase: 'error', error: action.error }
+    case 'DEADEND':
+      return { ...state, phase: 'deadend', error: null, deadEnd: action.deadEnd }
     case 'HELP':
       return { ...initialState, phase: 'help' }
     case 'RESET':
@@ -136,6 +149,105 @@ function computeMissing(slots) {
   // Silence means one-way.
   if (slots.wantsReturn && !slots.returnDate) missing.push('returnDate')
   return missing
+}
+
+// --- Dead ends ---
+//
+// The rule: no screen is ever a full stop. Every one of these carries at least
+// one button that puts the user back in the conversation, and the city they
+// already named is carried into whatever they pick.
+//
+// Tone is one warm sentence and then the options — no extended apology, which
+// reads as evasive when what the user wants is a way forward.
+
+// A few destinations to offer when we have nothing else to go on. Deliberately
+// spread across services so the buttons double as a hint about what exists.
+const EXAMPLE_DESTINATIONS = [
+  { label: 'مشهد', text: 'بلیط تهران به مشهد برای فردا' },
+  { label: 'کیش', text: 'تور کیش' },
+  { label: 'استانبول', text: 'پرواز تهران به استانبول' },
+]
+
+// True when an answer added nothing we didn't already have — i.e. we failed to
+// understand it. Compared on the slots that can actually be filled by a reply.
+function slotsUnchanged(prev, next) {
+  if (!prev) return false
+  return (
+    prev.origin?.name === next.origin?.name &&
+    prev.destination?.name === next.destination?.name &&
+    prev.date === next.date &&
+    prev.returnDate === next.returnDate &&
+    prev.nights === next.nights
+  )
+}
+
+function serviceOptions(intents, city) {
+  return intents.map((intent) => ({
+    intent,
+    city,
+    label: SERVICES[intent]?.label ?? intent,
+  }))
+}
+
+function listPersian(labels) {
+  if (labels.length === 1) return labels[0]
+  return `${labels.slice(0, -1).join('، ')} و ${labels[labels.length - 1]}`
+}
+
+// The city we asked about isn't served by this service, but is by others.
+function buildCityDeadEnd(slots, alternatives) {
+  const city = slots.destination ?? slots.origin
+  const service = SERVICES[slots.intent]?.label ?? 'این سرویس'
+  const options = serviceOptions(alternatives, city)
+  const others = listPersian(options.map((o) => o.label))
+  return {
+    kind: 'city_unsupported',
+    detail: `${slots.intent}->${alternatives.join('+')}`,
+    message: `${city.name} ${service} نداره، ولی می‌تونم ${others}ش رو برات پیدا کنم.`,
+    options,
+  }
+}
+
+// 780 has no standalone villa/ecolodge product at all — accommodation only
+// exists inside a tour package — so this is honest rather than a "coming soon".
+function buildVillaDeadEnd(slots) {
+  const city = slots?.destination ?? null
+  const intents = ['hotel_search', 'tour_search']
+  const where = city ? ` ${city.name}` : ''
+  return {
+    kind: 'unsupported_service',
+    detail: 'villa',
+    message: `اقامتگاه و ویلا رو ۷۸۰ جدا نداره، ولی هتل یا تور${where} رو می‌تونم پیدا کنم.`,
+    options: city
+      ? serviceOptions(intents, city)
+      : intents.map((intent) => ({
+          intent,
+          label: SERVICES[intent]?.label ?? intent,
+          text: `${SERVICES[intent]?.keyword} می‌خوام`,
+        })),
+  }
+}
+
+// We understood the service but not the place they named. The examples span
+// several services, so the wording stays service-neutral — promising "buses to
+// these" while offering a tour chip would be a small lie.
+function buildUnknownPlaceDeadEnd(slots) {
+  return {
+    kind: 'unknown_place',
+    detail: slots?.intent ?? '',
+    message: 'این مقصد رو نمی‌شناسم. می‌تونید دوباره بگید، یا یکی از این‌ها رو امتحان کنید:',
+    options: EXAMPLE_DESTINATIONS,
+  }
+}
+
+// Nothing understood at all — offer the quick starts rather than a bare error.
+function buildUnknownIntentDeadEnd() {
+  return {
+    kind: 'unknown_intent',
+    detail: '',
+    message: 'متوجه منظورتون نشدم. می‌تونم بلیط پرواز، قطار، اتوبوس، هتل یا تور پیدا کنم — یکی رو انتخاب کنید:',
+    options: SUGGESTIONS.map((s) => ({ label: s.label, text: s.text })),
+  }
 }
 
 // Builds the 780.ir URL from accumulated slots (same schemes as the backend's
@@ -514,18 +626,38 @@ function App() {
         return
       }
 
+      // A product 780 has no standalone version of. Checked before the city
+      // logic because no city can rescue it — the product simply isn't there.
+      if (data.unsupportedService === 'villa') {
+        showDeadEnd(buildVillaDeadEnd(data.destination ? data : accumulatedSlots))
+        return
+      }
+
       // First utterance we can't understand at all → don't enter the loop.
       if (!inConversation && data.intent === 'unknown') {
-        sendEvent('error_shown', 'unknown_intent')
-        dispatch({
-          type: 'ERROR',
-          error:
-            'متوجه منظورتون نشدم. من می‌تونم بلیط پرواز، قطار، اتوبوس یا هتل پیدا کنم — مثلاً بگید: «بلیط تهران به مشهد برای فردا».',
-        })
+        showDeadEnd(buildUnknownIntentDeadEnd())
         return
       }
 
       const merged = mergeSlots(accumulatedSlots, data)
+
+      // A city this service can't serve. The backend flags it as soon as the
+      // city is recognized, so we can offer alternatives now instead of first
+      // asking for an origin and a date we'd then have to throw away.
+      if (data.alternatives?.length) {
+        setAccumulatedSlots(merged)
+        showDeadEnd(buildCityDeadEnd(merged, data.alternatives))
+        return
+      }
+
+      // An answer that filled nothing is a place (or date) we didn't
+      // understand. Without this the same question would just be asked again,
+      // which is the loop the CTA work exists to remove.
+      if (inConversation && slotsUnchanged(accumulatedSlots, merged)) {
+        showDeadEnd(buildUnknownPlaceDeadEnd(merged))
+        return
+      }
+
       setAccumulatedSlots(merged)
 
       const missing = computeMissing(merged)
@@ -599,6 +731,8 @@ function App() {
       speak(state.question)
     } else if (state.phase === 'confirming' && accumulatedSlots) {
       speak(buildConfirmSpeech(accumulatedSlots))
+    } else if (state.phase === 'deadend' && state.deadEnd) {
+      speak(state.deadEnd.message)
     } else if (state.phase === 'error' && state.error) {
       speak(state.error)
     } else if (state.phase === 'idle' && state.notice) {
@@ -637,6 +771,47 @@ function App() {
     setVoiceNotice('')
     resetTranscript()
     dispatch({ type: 'RESET' })
+  }
+
+  function showDeadEnd(deadEnd) {
+    sendEvent('cta_shown', `${deadEnd.kind}:${deadEnd.detail}`)
+    dispatch({ type: 'DEADEND', deadEnd })
+  }
+
+  // Picking an alternative keeps the city we already know and only asks for
+  // what the new service still needs — the whole point is not restarting.
+  function handleCtaClick(option) {
+    const deadEnd = state.deadEnd
+    sendEvent('cta_clicked', `${deadEnd?.kind ?? ''}:${option.intent ?? option.label}`)
+
+    // Example/quick-start chips carry a full sentence instead of a city.
+    if (option.text) {
+      setAccumulatedSlots(null)
+      submit(option.text)
+      return
+    }
+
+    const seeded = {
+      intent: option.intent,
+      origin: null,
+      destination: option.city,
+      date: null,
+      returnDate: null,
+      wantsReturn: false,
+      nights: 0,
+      adults: 1,
+    }
+    setAccumulatedSlots(seeded)
+    cancelSpeech()
+
+    const missing = computeMissing(seeded)
+    if (missing.length === 0) {
+      sendEvent('confirm_shown', seeded.intent)
+      dispatch({ type: 'CONFIRM' })
+    } else {
+      sendEvent('clarification_shown', missing.join(','))
+      dispatch({ type: 'CLARIFY', question: buildQuestion(missing, seeded) })
+    }
   }
 
   function handleErrorRetry() {
@@ -952,6 +1127,30 @@ function App() {
               780.ir
             </a>
           )}
+          <button className="btn-secondary" onClick={handleNewSearch}>
+            جستجوی جدید
+          </button>
+        </div>
+      )}
+
+      {state.phase === 'deadend' && state.deadEnd && (
+        <div className="deadend-stage">
+          <div className="notice">
+            <SparkleIcon className="icon" />
+            {state.deadEnd.message}
+          </div>
+          <div className="cta-row">
+            {state.deadEnd.options.map((option) => (
+              <button
+                key={option.intent ?? option.label}
+                className="cta-button"
+                onClick={() => handleCtaClick(option)}
+              >
+                {option.intent && <ServiceIcon intent={option.intent} className="icon" />}
+                {option.label}
+              </button>
+            ))}
+          </div>
           <button className="btn-secondary" onClick={handleNewSearch}>
             جستجوی جدید
           </button>
